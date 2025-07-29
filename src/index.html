@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>ParaFile Desktop - AI Document Organizer</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>ParaFile Desktop</h1>
+        <p>AI-powered document organization and renaming</p>
+      </div>
+
+      <div class="main-panel">
+        <!-- Folder Selection Section -->
+        <div class="control-section">
+          <h3 class="section-title">Document Folder</h3>
+          <div class="folder-selector">
+            <input type="text" id="folderPath" class="folder-input" placeholder="Select a folder to monitor..." readonly>
+            <button id="browseBtn" class="btn btn-primary">Browse</button>
+          </div>
+          
+          <div class="checkbox-container">
+            <input type="checkbox" id="enableOrganization" checked>
+            <label for="enableOrganization">Enable folder organization (move files to category subfolders)</label>
+          </div>
+          
+          <div class="monitor-controls">
+            <button id="monitorBtn" class="btn btn-success">Start Monitoring</button>
+            <div class="status-indicator">
+              <div id="statusDot" class="status-dot"></div>
+              <span id="statusText">Not running</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Categories Section -->
+        <div class="control-section">
+          <h3 class="section-title">Categories</h3>
+          <div class="list-container">
+            <div class="list-header">
+              <p>Define categories for document organization</p>
+              <button id="addCategoryBtn" class="btn btn-primary btn-small">Add Category</button>
+            </div>
+            <div id="categoriesList" class="list-items">
+              <div class="empty-state">
+                <p>Loading categories...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Variables Section -->
+        <div class="control-section">
+          <h3 class="section-title">Variables</h3>
+          <div class="list-container">
+            <div class="list-header">
+              <p>Define variables for filename generation</p>
+              <button id="addVariableBtn" class="btn btn-primary btn-small">Add Variable</button>
+            </div>
+            <div id="variablesList" class="list-items">
+              <div class="empty-state">
+                <p>Loading variables...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div id="categoryModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="categoryModalTitle">Add Category</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <form id="categoryForm">
+          <div class="form-group">
+            <label for="categoryName">Category Name</label>
+            <input type="text" id="categoryName" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="categoryDescription">Description</label>
+            <textarea id="categoryDescription" class="form-textarea" required 
+                      placeholder="Describe what types of documents belong in this category..."></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="namingPattern">Naming Pattern</label>
+            <textarea id="namingPattern" class="form-textarea pattern-input" required 
+                      placeholder="Example: {date}_{client_name}_{document_type}"></textarea>
+            <p class="variable-hint">Use {variable_name} to insert variable values</p>
+            <div id="availableVariables" class="variable-list"></div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Variable Modal -->
+    <div id="variableModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="variableModalTitle">Add Variable</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <form id="variableForm">
+          <div class="form-group">
+            <label for="variableName">Variable Name</label>
+            <input type="text" id="variableName" class="form-input" required 
+                   pattern="[a-z_]+" title="Use lowercase letters and underscores only">
+          </div>
+          
+          <div class="form-group">
+            <label for="variableDescription">Description</label>
+            <textarea id="variableDescription" class="form-textarea" required 
+                      placeholder="Describe what information this variable should extract..."></textarea>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Variable</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
