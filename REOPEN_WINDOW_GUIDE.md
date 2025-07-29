@@ -1,22 +1,24 @@
-# How to Reopen ParaFile Window
+# How to Access ParaFile
 
-If the ParaFile window doesn't reopen when you click the tray icon, here are multiple ways to access it:
+ParaFile runs in the background like Slack or Teams. Here are all the ways to access the main window:
 
-## Method 1: System Tray Icon
+## Method 1: System Tray Icon (Primary)
 - **Location**: Look for the ParaFile icon in your system tray
   - **Windows**: Bottom-right corner, may be hidden behind the "^" arrow
   - **macOS**: Top-right corner in the menu bar
 - **Single-click** the icon to show/hide the window
+- **Double-click** the icon (especially useful on macOS)
 - **Right-click** the icon and select "Open ParaFile"
 
-## Method 2: Global Keyboard Shortcut
+## Method 2: Global Keyboard Shortcut (Fastest)
 - Press **Ctrl+Shift+P** (Windows/Linux) or **Cmd+Shift+P** (macOS)
-- This works from anywhere in your system
+- Works from anywhere in your system, even when tray icon is hidden
+- Registered globally when the app starts
 
-## Method 3: Right-Click Context Menu
+## Method 3: Right-Click Context Menu (Most Reliable)
 - **Right-click** the tray icon
-- Select **"Open ParaFile"** from the menu
-- This should always work even if clicking doesn't
+- Select **"Open ParaFile"** from the comprehensive menu
+- Also shows monitoring status and quick controls
 
 ## Method 4: Command Line
 ```bash

@@ -144,8 +144,28 @@ async function updateTrayMenu() {
         } else {
           const config = await configManager.load();
           if (config.watched_folder) {
-            fileMonitor.start(config.watched_folder);
-            isMonitoring = true;
+            // Test API key before starting
+            if (config.openai_api_key) {
+              try {
+                const { OpenAI } = require('openai');
+                const openai = new OpenAI({ apiKey: config.openai_api_key });
+                await openai.models.list();
+                
+                fileMonitor.start(config.watched_folder);
+                isMonitoring = true;
+              } catch (error) {
+                console.error('API key validation failed:', error);
+                // Show notification if main window exists
+                if (mainWindow) {
+                  mainWindow.webContents.send('monitor:error', 'Invalid OpenAI API key. Please check your settings.');
+                }
+              }
+            } else {
+              // Show notification if main window exists
+              if (mainWindow) {
+                mainWindow.webContents.send('monitor:error', 'OpenAI API key not configured. Please set it in Settings.');
+              }
+            }
           }
         }
         updateTrayMenu();

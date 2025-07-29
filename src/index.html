@@ -22,17 +22,44 @@
 
       <!-- Main panel -->
       <div class="main-panel">
-        <!-- Welcome/Onboarding Section (shown when no folder selected) -->
+        <!-- Welcome/Onboarding Section (shown when no API key or folder selected) -->
         <div id="welcomeSection" class="control-section" style="display: none;">
           <div style="text-align: center; padding: 40px 20px;">
-            <div style="font-size: 64px; margin-bottom: 20px;">📁</div>
+            <div style="font-size: 64px; margin-bottom: 20px;">🤖</div>
             <h2 style="font-size: 28px; margin-bottom: 15px; color: var(--dark);">Welcome to ParaFile!</h2>
             <p style="font-size: 16px; color: #232323; opacity: 0.8; margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
-              Let's get started by selecting a folder to monitor. ParaFile will automatically organize your PDFs and Word documents using AI.
+              Let's get you set up! First, you'll need to configure your OpenAI API key so ParaFile can intelligently organize your documents.
             </p>
-            <button id="getStartedBtn" class="btn btn-primary" style="font-size: 16px; padding: 16px 32px;">
-              <span>🚀</span> Get Started
-            </button>
+            
+            <div id="onboardingSteps" style="text-align: left; max-width: 400px; margin: 0 auto 30px auto;">
+              <div class="onboarding-step" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <h4>Configure OpenAI API Key</h4>
+                  <p>Set up your API key for AI-powered document analysis</p>
+                  <button id="configureApiBtn" class="btn btn-primary btn-small">
+                    <span>⚙️</span> Configure API Key
+                  </button>
+                  <span id="step1Status" class="step-status"></span>
+                </div>
+              </div>
+              
+              <div class="onboarding-step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <h4>Select Folder to Monitor</h4>
+                  <p>Choose a folder where your documents will be organized</p>
+                  <button id="selectFolderBtn" class="btn btn-secondary btn-small" disabled>
+                    <span>📁</span> Select Folder
+                  </button>
+                  <span id="step2Status" class="step-status"></span>
+                </div>
+              </div>
+            </div>
+            
+            <p style="font-size: 14px; color: #232323; opacity: 0.6; margin-top: 20px;">
+              Need an API key? Get one from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--primary);">OpenAI Platform</a>
+            </p>
           </div>
         </div>
 

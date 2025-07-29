@@ -9,18 +9,18 @@ document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   setupEventListeners();
   setupIPCListeners();
-  checkOnboarding();
   initializeDragAndDrop();
 });
 
 // Check if first time user
 function checkOnboarding() {
-  const folderPath = document.getElementById('folderPath').value;
+  const apiKey = currentConfig ? currentConfig.openai_api_key : '';
+  const folderPath = currentConfig ? currentConfig.watched_folder : '';
   const welcomeSection = document.getElementById('welcomeSection');
   const mainContent = document.getElementById('mainContent');
   const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
   
-  if (!folderPath && !hasSeenWelcome) {
+  if ((!apiKey || !folderPath) && !hasSeenWelcome) {
     welcomeSection.style.display = 'block';
     mainContent.style.display = 'none';
     
@@ -28,24 +28,102 @@ function checkOnboarding() {
     document.querySelectorAll('.control-section').forEach((section, index) => {
       if (index > 1) section.style.display = 'none';
     });
+    
+    // Update onboarding steps
+    updateOnboardingSteps();
   } else {
     welcomeSection.style.display = 'none';
     mainContent.style.display = 'block';
+    
+    // Show all sections for returning users
+    document.querySelectorAll('.control-section').forEach(section => {
+      section.style.display = 'block';
+    });
   }
+}
+
+// Update onboarding steps status
+function updateOnboardingSteps() {
+  const apiKey = currentConfig ? currentConfig.openai_api_key : '';
+  const folderPath = currentConfig ? currentConfig.watched_folder : '';
+  
+  const step1 = document.getElementById('step1');
+  const step1Status = document.getElementById('step1Status');
+  const step2 = document.getElementById('step2');
+  const step2Status = document.getElementById('step2Status');
+  const selectFolderBtn = document.getElementById('selectFolderBtn');
+  
+  // Step 1: API Key
+  if (apiKey) {
+    step1.classList.add('completed');
+    step1Status.textContent = '✓ Configured';
+    step1Status.className = 'step-status success';
+    
+    // Enable step 2
+    selectFolderBtn.disabled = false;
+    selectFolderBtn.classList.remove('btn-secondary');
+    selectFolderBtn.classList.add('btn-primary');
+  } else {
+    step1.classList.remove('completed');
+    step1Status.textContent = '';
+    step1Status.className = 'step-status';
+    
+    // Disable step 2
+    selectFolderBtn.disabled = true;
+    selectFolderBtn.classList.remove('btn-primary');
+    selectFolderBtn.classList.add('btn-secondary');
+  }
+  
+  // Step 2: Folder
+  if (folderPath) {
+    step2.classList.add('completed');
+    step2Status.textContent = '✓ Selected';
+    step2Status.className = 'step-status success';
+    
+    // Complete onboarding if both steps are done
+    if (apiKey) {
+      setTimeout(() => {
+        completeOnboarding();
+      }, 1000);
+    }
+  } else {
+    step2.classList.remove('completed');
+    step2Status.textContent = '';
+    step2Status.className = 'step-status';
+  }
+}
+
+// Complete onboarding
+function completeOnboarding() {
+  localStorage.setItem('hasSeenWelcome', 'true');
+  document.getElementById('welcomeSection').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  document.querySelectorAll('.control-section').forEach(section => {
+    section.style.display = 'block';
+  });
+  showNotification('Setup Complete', 'ParaFile is ready to organize your documents!', 'success');
 }
 
 // Load configuration
 async function loadConfig() {
   currentConfig = await ipcRenderer.invoke('config:load');
   updateUI();
+  checkOnboarding();
 }
 
 // Setup event listeners
 function setupEventListeners() {
-  // Get started button
-  const getStartedBtn = document.getElementById('getStartedBtn');
-  if (getStartedBtn) {
-    getStartedBtn.addEventListener('click', () => {
+  // Onboarding buttons
+  const configureApiBtn = document.getElementById('configureApiBtn');
+  if (configureApiBtn) {
+    configureApiBtn.addEventListener('click', () => {
+      showSettingsModal();
+    });
+  }
+  
+  const selectFolderBtn = document.getElementById('selectFolderBtn');
+  if (selectFolderBtn) {
+    selectFolderBtn.addEventListener('click', () => {
       selectFolder();
     });
   }
@@ -127,13 +205,18 @@ async function selectFolder() {
     });
     currentConfig.watched_folder = folderPath;
     
-    // Mark that user has seen welcome screen and show all sections
-    localStorage.setItem('hasSeenWelcome', 'true');
-    document.getElementById('welcomeSection').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
-    document.querySelectorAll('.control-section').forEach(section => {
-      section.style.display = 'block';
-    });
+    // Update onboarding if we're in welcome mode
+    if (document.getElementById('welcomeSection').style.display !== 'none') {
+      updateOnboardingSteps();
+    } else {
+      // Mark that user has seen welcome screen and show all sections
+      localStorage.setItem('hasSeenWelcome', 'true');
+      document.getElementById('welcomeSection').style.display = 'none';
+      document.getElementById('mainContent').style.display = 'block';
+      document.querySelectorAll('.control-section').forEach(section => {
+        section.style.display = 'block';
+      });
+    }
     
     // Show drop zone when monitoring
     const isRunning = await ipcRenderer.invoke('monitor:status');
@@ -158,11 +241,40 @@ async function toggleMonitoring() {
       return;
     }
     
-    await ipcRenderer.invoke('monitor:start', currentConfig.watched_folder);
-    btn.innerHTML = '<span>⏸️</span> Stop Monitoring';
-    btn.classList.remove('btn-success');
-    btn.classList.add('btn-danger');
-    document.getElementById('dropZone').style.display = 'block';
+    if (!currentConfig.openai_api_key) {
+      showNotification('Error', 'Please configure your OpenAI API key in Settings first', 'error');
+      return;
+    }
+    
+    // Test API key before starting monitoring
+    btn.innerHTML = '<span>⏳</span> Testing API Key...';
+    btn.disabled = true;
+    
+    try {
+      const apiTest = await ipcRenderer.invoke('api:testKey', currentConfig.openai_api_key);
+      
+      if (!apiTest.success) {
+        showNotification('API Key Error', `Cannot start monitoring: ${apiTest.error}`, 'error');
+        btn.innerHTML = '<span>▶️</span> Start Monitoring';
+        btn.disabled = false;
+        return;
+      }
+      
+      // API key is valid, start monitoring
+      await ipcRenderer.invoke('monitor:start', currentConfig.watched_folder);
+      btn.innerHTML = '<span>⏸️</span> Stop Monitoring';
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-danger');
+      btn.disabled = false;
+      document.getElementById('dropZone').style.display = 'block';
+      
+      showNotification('Success', 'Monitoring started successfully', 'success');
+      
+    } catch (error) {
+      showNotification('Error', `Failed to test API key: ${error.message}`, 'error');
+      btn.innerHTML = '<span>▶️</span> Start Monitoring';
+      btn.disabled = false;
+    }
   }
 }
 
@@ -435,6 +547,11 @@ function setupModalControls() {
     
     document.getElementById('settingsModal').classList.remove('active');
     showNotification('Success', 'Settings saved successfully', 'success');
+    
+    // Update onboarding if we're in welcome mode
+    if (document.getElementById('welcomeSection').style.display !== 'none') {
+      updateOnboardingSteps();
+    }
   });
   
   // Test API key button

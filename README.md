@@ -4,46 +4,58 @@ An AI-powered document organization and renaming application that automatically 
 
 ## Features
 
-- **Automatic Document Monitoring**: Watches folders for new PDF and Word documents
-- **AI-Powered Categorization**: Uses OpenAI GPT-4 to intelligently categorize documents
-- **Smart Renaming**: Extracts variables from documents to generate meaningful filenames
-- **Modern UI**: Clean, intuitive interface for easy configuration
+- **AI-Powered Document Organization**: Uses OpenAI GPT-4 to intelligently categorize and rename documents
+- **Modern Glassmorphism UI**: Beautiful, intuitive interface with forest green color scheme
+- **Background Operation**: Runs in system tray like Slack/Teams with global shortcuts
+- **Guided Setup**: Step-by-step onboarding that ensures proper configuration
+- **Built-in Settings**: Configure OpenAI API key and test connection directly in the app
+- **Smart File Monitoring**: Watches folders for new PDF and Word documents with retry logic
+- **Custom Categories & Variables**: Define your own organization rules and naming patterns
+- **Drag & Drop Processing**: Instant document processing with visual feedback
+- **Auto-Launch Support**: Start with your system and run in background
 - **Command-Line Mode**: Headless monitoring service for automated workflows
 - **Robust Error Handling**: Handles file locks, API failures, and corrupted documents gracefully
 
 ## Quick Start
 
-### 1. Setup
+### 1. Installation
 
 ```bash
 # Clone or download the project
 npm install
-
-# Set up your OpenAI API key
-cp .env.example .env
-# Edit .env and add your OpenAI API key
 ```
 
-### 2. Configure the Application
+### 2. First Launch & Setup
 
 ```bash
-# Start the GUI application
+# Start the application
 npm start
 ```
 
-1. **Select a folder** to monitor using the Browse button
-2. **Configure categories** - Add categories with descriptions for the AI to understand
-3. **Define variables** - Create variables that the AI can extract from documents
-4. **Set naming patterns** - Use variables in curly braces like `{date}_{client_name}_{document_type}`
+**Guided Setup Process:**
+1. **Configure OpenAI API Key** - Set up your API key with built-in connection testing
+2. **Select Monitor Folder** - Choose where your documents will be organized
+3. **Customize Categories** (Optional) - Add categories with descriptions for AI understanding
+4. **Define Variables** (Optional) - Create variables for custom filename patterns
+
+**No .env file needed!** - All configuration is done through the modern UI.
 
 ### 3. Start Monitoring
 
-Click "Start Monitoring" in the GUI, or run the CLI version:
+Click "Start Monitoring" in the GUI (API key is automatically validated), or run the CLI version:
 
 ```bash
-# Run headless monitoring service
+# Run headless monitoring service (requires prior GUI setup)
 npm run monitor
 ```
+
+### 4. Background Operation
+
+**System Tray Integration:**
+- Close window to minimize to system tray
+- Right-click tray icon for quick controls
+- Global shortcut: `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
+- Auto-launch option available in settings
 
 ## Example Configuration
 
@@ -72,7 +84,7 @@ npm run monitor
 ## Requirements
 
 - **Node.js** 16 or higher
-- **OpenAI API Key** with GPT-4 access
+- **OpenAI API Key** with GPT-4 access (configured through the app's Settings)
 - **Operating System**: Windows, macOS, or Linux
 
 ## Commands
@@ -93,18 +105,21 @@ Settings are stored in your user data directory:
 
 ### Common Issues
 
-1. **"OpenAI API key not found"**
-   - Ensure your `.env` file exists and contains `OPENAI_API_KEY=your_key_here`
+1. **"Cannot start monitoring" errors**
+   - Use the built-in API key tester in Settings to verify your key
+   - Ensure you have API credits remaining on your OpenAI account
+   - Check your internet connection
 
 2. **Files not being processed**
-   - Check that the folder path is correct
+   - Check that the folder path is correct and accessible
    - Ensure files are PDF or Word documents (.pdf, .docx, .doc)
-   - Verify the monitoring service is running
+   - Verify the monitoring service is running (green status dot)
+   - Check if API key validation is passing
 
-3. **AI categorization not working**
-   - Check your OpenAI API key has GPT-4 access
-   - Ensure you have API credits remaining
-   - Check the application logs for error messages
+3. **Tray icon not working**
+   - Try the global shortcut: `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
+   - Right-click tray icon and select "Open ParaFile"
+   - Restart the application if the tray icon is missing
 
 ### File Processing Errors
 
