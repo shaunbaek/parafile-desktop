@@ -90,6 +90,12 @@
             </div>
           </div>
 
+          <div style="margin-top: 20px;">
+            <button id="settingsBtn" class="btn btn-secondary">
+              <span>⚙️</span> Settings
+            </button>
+          </div>
+
           <!-- Drag and Drop Zone -->
           <div id="dropZone" class="drop-zone" style="display: none;">
             <div class="drop-zone-icon">📄</div>
@@ -200,6 +206,44 @@
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary">
               <span>💾</span> Save Variable
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <form id="settingsForm">
+          <h3 style="margin-bottom: 15px; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 18px;">AI Configuration</h3>
+          
+          <div class="form-group">
+            <label for="openaiApiKey">OpenAI API Key</label>
+            <input type="password" id="openaiApiKey" class="form-input" 
+                   placeholder="Enter your OpenAI API key (sk-...)">
+            <p class="form-hint">
+              Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--primary);">OpenAI Platform</a>. 
+              This key is stored securely on your device.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <button type="button" id="testApiKeyBtn" class="btn btn-secondary btn-small">
+              <span>🧪</span> Test Connection
+            </button>
+            <span id="apiKeyStatus" class="api-key-status"></span>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <span>💾</span> Save Settings
             </button>
           </div>
         </form>

@@ -1,16 +1,14 @@
 const OpenAI = require('openai');
-require('dotenv').config();
 
 class AIService {
   constructor() {
     this.openai = null;
-    this.initialize();
   }
 
-  initialize() {
-    const apiKey = process.env.OPENAI_API_KEY;
+  initialize(apiKey) {
     if (!apiKey) {
-      console.error('OpenAI API key not found. Please set OPENAI_API_KEY in your .env file');
+      console.warn('OpenAI API key not provided');
+      this.openai = null;
       return;
     }
     

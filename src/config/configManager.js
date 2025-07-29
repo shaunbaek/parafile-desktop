@@ -8,6 +8,7 @@ class ConfigManager {
     this.defaultConfig = {
       watched_folder: '',
       enable_organization: true,
+      openai_api_key: '',
       categories: [
         {
           name: 'General',
@@ -58,6 +59,7 @@ class ConfigManager {
     const repaired = {
       watched_folder: config.watched_folder || '',
       enable_organization: config.enable_organization !== false,
+      openai_api_key: config.openai_api_key || '',
       categories: Array.isArray(config.categories) ? config.categories : [],
       variables: Array.isArray(config.variables) ? config.variables : []
     };
@@ -140,6 +142,9 @@ class ConfigManager {
     }
     if (settings.enable_organization !== undefined) {
       config.enable_organization = settings.enable_organization;
+    }
+    if (settings.openai_api_key !== undefined) {
+      config.openai_api_key = settings.openai_api_key;
     }
     await this.save(config);
     return config;

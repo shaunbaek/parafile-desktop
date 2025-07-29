@@ -20,6 +20,11 @@ class DocumentProcessor {
     try {
       console.log(`Processing document: ${result.fileName}`);
       
+      // Initialize AI service with API key from config
+      if (config.openai_api_key) {
+        aiService.initialize(config.openai_api_key);
+      }
+      
       // Extract text with retry mechanism
       const extractedData = await errorHandler.safeExecute(
         () => textExtractor.tryExtractWithRetry(fileInfo.path, fileInfo.type),

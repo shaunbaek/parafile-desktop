@@ -340,6 +340,33 @@ function setupIPCHandlers() {
   ipcMain.handle('auto-launch:toggle', async () => {
     return await autoLauncher.toggle();
   });
+
+  // API testing
+  ipcMain.handle('api:testKey', async (event, apiKey) => {
+    try {
+      const { OpenAI } = require('openai');
+      const openai = new OpenAI({ apiKey });
+      
+      // Simple test call to validate the API key
+      await openai.models.list();
+      
+      return { success: true };
+    } catch (error) {
+      let errorMessage = 'Unknown error';
+      
+      if (error.status === 401) {
+        errorMessage = 'Invalid API key';
+      } else if (error.status === 429) {
+        errorMessage = 'Rate limit exceeded or insufficient credits';
+      } else if (error.code === 'ENOTFOUND') {
+        errorMessage = 'Network connection failed';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      return { success: false, error: errorMessage };
+    }
+  });
 }
 
 // Setup file monitor event handlers

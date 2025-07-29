@@ -80,6 +80,9 @@ function setupEventListeners() {
   // Variable management
   document.getElementById('addVariableBtn').addEventListener('click', () => showVariableModal());
   
+  // Settings
+  document.getElementById('settingsBtn').addEventListener('click', () => showSettingsModal());
+  
   // Modal controls
   setupModalControls();
 }
@@ -318,6 +321,25 @@ function showVariableModal(variable = null, index = -1) {
   modal.classList.add('active');
 }
 
+// Settings modal
+function showSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  const form = document.getElementById('settingsForm');
+  
+  // Load current API key
+  if (currentConfig && currentConfig.openai_api_key) {
+    document.getElementById('openaiApiKey').value = currentConfig.openai_api_key;
+  } else {
+    form.reset();
+  }
+  
+  // Clear status
+  document.getElementById('apiKeyStatus').textContent = '';
+  document.getElementById('apiKeyStatus').className = 'api-key-status';
+  
+  modal.classList.add('active');
+}
+
 // Update available variables in category form
 function updateAvailableVariables() {
   const container = document.getElementById('availableVariables');
@@ -397,6 +419,57 @@ function setupModalControls() {
     renderVariables();
     updateAvailableVariables();
     showNotification('Success', `Variable "{${variable.name}}" saved`, 'success');
+  });
+  
+  // Settings form submission
+  document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const apiKey = document.getElementById('openaiApiKey').value.trim();
+    
+    await ipcRenderer.invoke('config:updateSettings', {
+      openai_api_key: apiKey
+    });
+    
+    currentConfig.openai_api_key = apiKey;
+    
+    document.getElementById('settingsModal').classList.remove('active');
+    showNotification('Success', 'Settings saved successfully', 'success');
+  });
+  
+  // Test API key button
+  document.getElementById('testApiKeyBtn').addEventListener('click', async () => {
+    const apiKey = document.getElementById('openaiApiKey').value.trim();
+    const statusEl = document.getElementById('apiKeyStatus');
+    
+    if (!apiKey) {
+      statusEl.textContent = 'Please enter an API key';
+      statusEl.className = 'api-key-status error';
+      return;
+    }
+    
+    if (!apiKey.startsWith('sk-')) {
+      statusEl.textContent = 'API key should start with "sk-"';
+      statusEl.className = 'api-key-status error';
+      return;
+    }
+    
+    statusEl.textContent = 'Testing connection...';
+    statusEl.className = 'api-key-status testing';
+    
+    try {
+      const result = await ipcRenderer.invoke('api:testKey', apiKey);
+      if (result.success) {
+        statusEl.textContent = '✓ Connection successful';
+        statusEl.className = 'api-key-status success';
+      } else {
+        statusEl.textContent = `✗ ${result.error}`;
+        statusEl.className = 'api-key-status error';
+      }
+    } catch (error) {
+      statusEl.textContent = `✗ Test failed: ${error.message}`;
+      statusEl.className = 'api-key-status error';
+    }
   });
 }
 
