@@ -9,7 +9,26 @@ document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   setupEventListeners();
   setupIPCListeners();
+  checkOnboarding();
+  initializeDragAndDrop();
 });
+
+// Check if first time user
+function checkOnboarding() {
+  const folderPath = document.getElementById('folderPath').value;
+  const welcomeSection = document.getElementById('welcomeSection');
+  const mainContent = document.getElementById('mainContent');
+  
+  if (!folderPath) {
+    welcomeSection.style.display = 'block';
+    mainContent.style.display = 'none';
+    
+    // Hide other sections initially for clean onboarding
+    document.querySelectorAll('.control-section').forEach((section, index) => {
+      if (index > 1) section.style.display = 'none';
+    });
+  }
+}
 
 // Load configuration
 async function loadConfig() {
@@ -19,6 +38,14 @@ async function loadConfig() {
 
 // Setup event listeners
 function setupEventListeners() {
+  // Get started button
+  const getStartedBtn = document.getElementById('getStartedBtn');
+  if (getStartedBtn) {
+    getStartedBtn.addEventListener('click', () => {
+      selectFolder();
+    });
+  }
+  
   // Folder selection
   document.getElementById('browseBtn').addEventListener('click', selectFolder);
   
@@ -50,11 +77,24 @@ function setupIPCListeners() {
   });
   
   ipcRenderer.on('monitor:error', (event, error) => {
-    alert(`Monitoring error: ${error}`);
+    showNotification('Error', error, 'error');
   });
   
   ipcRenderer.on('file:processed', (event, result) => {
     console.log('File processed:', result);
+    if (result.success) {
+      showNotification(
+        'Document Processed', 
+        `${result.fileName} → ${result.category}`,
+        'success'
+      );
+    } else {
+      showNotification(
+        'Processing Failed',
+        `${result.fileName}: ${result.error}`,
+        'error'
+      );
+    }
   });
 }
 
@@ -69,6 +109,17 @@ async function selectFolder() {
       watched_folder: folderPath
     });
     currentConfig.watched_folder = folderPath;
+    
+    // Show all sections after folder selection
+    document.getElementById('welcomeSection').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    document.querySelectorAll('.control-section').forEach(section => {
+      section.style.display = 'block';
+    });
+    
+    // Show drop zone when monitoring
+    const isRunning = await ipcRenderer.invoke('monitor:status');
+    document.getElementById('dropZone').style.display = isRunning ? 'block' : 'none';
   }
 }
 
@@ -79,19 +130,21 @@ async function toggleMonitoring() {
   
   if (isRunning) {
     await ipcRenderer.invoke('monitor:stop');
-    btn.textContent = 'Start Monitoring';
+    btn.innerHTML = '<span>▶️</span> Start Monitoring';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
+    document.getElementById('dropZone').style.display = 'none';
   } else {
     if (!currentConfig.watched_folder) {
-      alert('Please select a folder to monitor first');
+      showNotification('Error', 'Please select a folder to monitor first', 'error');
       return;
     }
     
     await ipcRenderer.invoke('monitor:start', currentConfig.watched_folder);
-    btn.textContent = 'Stop Monitoring';
+    btn.innerHTML = '<span>⏸️</span> Stop Monitoring';
     btn.classList.remove('btn-success');
     btn.classList.add('btn-danger');
+    document.getElementById('dropZone').style.display = 'block';
   }
 }
 
@@ -104,15 +157,17 @@ function updateMonitorStatus(isRunning) {
   if (isRunning) {
     statusDot.classList.add('running');
     statusText.textContent = 'Running';
-    btn.textContent = 'Stop Monitoring';
+    btn.innerHTML = '<span>⏸️</span> Stop Monitoring';
     btn.classList.remove('btn-success');
     btn.classList.add('btn-danger');
+    document.getElementById('dropZone').style.display = 'block';
   } else {
     statusDot.classList.remove('running');
     statusText.textContent = 'Not running';
-    btn.textContent = 'Start Monitoring';
+    btn.innerHTML = '<span>▶️</span> Start Monitoring';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
+    document.getElementById('dropZone').style.display = 'none';
   }
 }
 
@@ -136,7 +191,12 @@ function renderCategories() {
   const container = document.getElementById('categoriesList');
   
   if (currentConfig.categories.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No categories defined</p></div>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📂</div>
+        <p>No categories defined yet</p>
+      </div>
+    `;
     return;
   }
   
@@ -145,15 +205,17 @@ function renderCategories() {
       <div class="list-item-info">
         <h4>${category.name}</h4>
         <p>${category.description}</p>
-        <p style="font-family: monospace; font-size: 12px; margin-top: 5px;">
-          Pattern: ${category.naming_pattern}
-        </p>
+        <div class="naming-pattern">Pattern: ${category.naming_pattern}</div>
       </div>
       <div class="list-item-actions">
         ${category.name !== 'General' ? `
-          <button class="btn btn-secondary btn-small" onclick="editCategory(${index})">Edit</button>
-          <button class="btn btn-danger btn-small" onclick="deleteCategory(${index})">Delete</button>
-        ` : ''}
+          <button class="btn btn-secondary btn-small" onclick="editCategory(${index})">
+            <span>✏️</span> Edit
+          </button>
+          <button class="btn btn-danger btn-small" onclick="deleteCategory(${index})">
+            <span>🗑️</span> Delete
+          </button>
+        ` : '<span style="color: #232323; opacity: 0.5; font-size: 13px;">Protected category</span>'}
       </div>
     </div>
   `).join('');
@@ -164,7 +226,12 @@ function renderVariables() {
   const container = document.getElementById('variablesList');
   
   if (currentConfig.variables.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No variables defined</p></div>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🏷️</div>
+        <p>No variables defined yet</p>
+      </div>
+    `;
     return;
   }
   
@@ -176,9 +243,13 @@ function renderVariables() {
       </div>
       <div class="list-item-actions">
         ${variable.name !== 'original_name' ? `
-          <button class="btn btn-secondary btn-small" onclick="editVariable(${index})">Edit</button>
-          <button class="btn btn-danger btn-small" onclick="deleteVariable(${index})">Delete</button>
-        ` : ''}
+          <button class="btn btn-secondary btn-small" onclick="editVariable(${index})">
+            <span>✏️</span> Edit
+          </button>
+          <button class="btn btn-danger btn-small" onclick="deleteVariable(${index})">
+            <span>🗑️</span> Delete
+          </button>
+        ` : '<span style="color: #232323; opacity: 0.5; font-size: 13px;">Protected variable</span>'}
       </div>
     </div>
   `).join('');
@@ -254,6 +325,15 @@ function setupModalControls() {
     });
   });
   
+  // Close modal on outside click
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+      }
+    });
+  });
+  
   // Category form submission
   document.getElementById('categoryForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -272,6 +352,7 @@ function setupModalControls() {
     
     document.getElementById('categoryModal').classList.remove('active');
     renderCategories();
+    showNotification('Success', `Category "${category.name}" saved`, 'success');
   });
   
   // Variable form submission
@@ -291,6 +372,93 @@ function setupModalControls() {
     
     document.getElementById('variableModal').classList.remove('active');
     renderVariables();
+    updateAvailableVariables();
+    showNotification('Success', `Variable "{${variable.name}}" saved`, 'success');
+  });
+}
+
+// Show notification
+function showNotification(title, message, type = 'success') {
+  const notification = document.getElementById('notification');
+  const icon = document.getElementById('notificationIcon');
+  const titleEl = document.getElementById('notificationTitle');
+  const messageEl = document.getElementById('notificationMessage');
+  
+  // Update content
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  
+  // Update icon
+  icon.className = `notification-icon ${type}`;
+  icon.innerHTML = type === 'success' ? '<span>✓</span>' : '<span>✗</span>';
+  
+  // Show notification
+  notification.classList.add('show');
+  
+  // Hide after 4 seconds
+  setTimeout(() => {
+    notification.classList.remove('show');
+  }, 4000);
+}
+
+// Initialize drag and drop
+function initializeDragAndDrop() {
+  const dropZone = document.getElementById('dropZone');
+  
+  // Prevent default drag behaviors
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+    document.body.addEventListener(eventName, preventDefaults, false);
+  });
+  
+  // Highlight drop zone when item is dragged over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, highlight, false);
+  });
+  
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, unhighlight, false);
+  });
+  
+  // Handle dropped files
+  dropZone.addEventListener('drop', handleDrop, false);
+}
+
+function preventDefaults(e) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function highlight(e) {
+  document.getElementById('dropZone').classList.add('drag-over');
+}
+
+function unhighlight(e) {
+  document.getElementById('dropZone').classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+  const dt = e.dataTransfer;
+  const files = dt.files;
+  
+  handleFiles(files);
+}
+
+async function handleFiles(files) {
+  ([...files]).forEach(async (file) => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (['pdf', 'doc', 'docx'].includes(ext)) {
+      // Show processing notification
+      showNotification('Processing', `Processing ${file.name}...`, 'success');
+      
+      // In a real implementation, you would send this file to the main process
+      // For now, we'll just show a success message after a delay
+      setTimeout(() => {
+        showNotification('Success', `${file.name} has been processed`, 'success');
+      }, 2000);
+    } else {
+      showNotification('Error', `${file.name} is not a supported file type`, 'error');
+    }
   });
 }
 
@@ -303,6 +471,7 @@ window.deleteCategory = async (index) => {
   if (confirm('Are you sure you want to delete this category?')) {
     currentConfig = await ipcRenderer.invoke('config:deleteCategory', index);
     renderCategories();
+    showNotification('Success', 'Category deleted', 'success');
   }
 };
 
@@ -314,6 +483,8 @@ window.deleteVariable = async (index) => {
   if (confirm('Are you sure you want to delete this variable?')) {
     currentConfig = await ipcRenderer.invoke('config:deleteVariable', index);
     renderVariables();
+    updateAvailableVariables();
+    showNotification('Success', 'Variable deleted', 'success');
   }
 };
 

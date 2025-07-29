@@ -2,36 +2,74 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>ParaFile Desktop - AI Document Organizer</title>
+    <title>ParaFile - AI Document Organizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css" />
   </head>
   <body>
+    <!-- Animated gradient orbs -->
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+
     <div class="container">
+      <!-- Header -->
       <div class="header">
-        <h1>ParaFile Desktop</h1>
-        <p>AI-powered document organization and renaming</p>
+        <h1>ParaFile</h1>
+        <p>AI-powered document organization made simple</p>
       </div>
 
+      <!-- Main panel -->
       <div class="main-panel">
+        <!-- Welcome/Onboarding Section (shown when no folder selected) -->
+        <div id="welcomeSection" class="control-section" style="display: none;">
+          <div style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">📁</div>
+            <h2 style="font-size: 28px; margin-bottom: 15px; color: var(--dark);">Welcome to ParaFile!</h2>
+            <p style="font-size: 16px; color: #232323; opacity: 0.8; margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
+              Let's get started by selecting a folder to monitor. ParaFile will automatically organize your PDFs and Word documents using AI.
+            </p>
+            <button id="getStartedBtn" class="btn btn-primary" style="font-size: 16px; padding: 16px 32px;">
+              <span>🚀</span> Get Started
+            </button>
+          </div>
+        </div>
+
         <!-- Folder Selection Section -->
-        <div class="control-section">
+        <div id="mainContent" class="control-section">
           <h3 class="section-title">Document Folder</h3>
           <div class="folder-selector">
             <input type="text" id="folderPath" class="folder-input" placeholder="Select a folder to monitor..." readonly>
-            <button id="browseBtn" class="btn btn-primary">Browse</button>
+            <button id="browseBtn" class="btn btn-primary">
+              <span>📂</span> Browse
+            </button>
           </div>
           
-          <div class="checkbox-container">
-            <input type="checkbox" id="enableOrganization" checked>
-            <label for="enableOrganization">Enable folder organization (move files to category subfolders)</label>
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="enableOrganization" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label for="enableOrganization" class="toggle-label">
+              Organize files into category subfolders
+            </label>
           </div>
           
           <div class="monitor-controls">
-            <button id="monitorBtn" class="btn btn-success">Start Monitoring</button>
+            <button id="monitorBtn" class="btn btn-success">
+              <span>▶️</span> Start Monitoring
+            </button>
             <div class="status-indicator">
               <div id="statusDot" class="status-dot"></div>
               <span id="statusText">Not running</span>
             </div>
+          </div>
+
+          <!-- Drag and Drop Zone -->
+          <div id="dropZone" class="drop-zone" style="display: none;">
+            <div class="drop-zone-icon">📄</div>
+            <p>Drag and drop PDF or Word files here for instant processing</p>
           </div>
         </div>
 
@@ -41,11 +79,13 @@
           <div class="list-container">
             <div class="list-header">
               <p>Define categories for document organization</p>
-              <button id="addCategoryBtn" class="btn btn-primary btn-small">Add Category</button>
+              <button id="addCategoryBtn" class="btn btn-primary btn-small">
+                <span>➕</span> Add Category
+              </button>
             </div>
             <div id="categoriesList" class="list-items">
               <div class="empty-state">
-                <p>Loading categories...</p>
+                <div class="spinner"></div>
               </div>
             </div>
           </div>
@@ -57,11 +97,13 @@
           <div class="list-container">
             <div class="list-header">
               <p>Define variables for filename generation</p>
-              <button id="addVariableBtn" class="btn btn-primary btn-small">Add Variable</button>
+              <button id="addVariableBtn" class="btn btn-primary btn-small">
+                <span>➕</span> Add Variable
+              </button>
             </div>
             <div id="variablesList" class="list-items">
               <div class="empty-state">
-                <p>Loading variables...</p>
+                <div class="spinner"></div>
               </div>
             </div>
           </div>
@@ -80,26 +122,29 @@
         <form id="categoryForm">
           <div class="form-group">
             <label for="categoryName">Category Name</label>
-            <input type="text" id="categoryName" class="form-input" required>
+            <input type="text" id="categoryName" class="form-input" required 
+                   placeholder="e.g., Invoices, Contracts, Reports">
           </div>
           
           <div class="form-group">
             <label for="categoryDescription">Description</label>
             <textarea id="categoryDescription" class="form-textarea" required 
-                      placeholder="Describe what types of documents belong in this category..."></textarea>
+                      placeholder="Describe what types of documents belong in this category. The AI will use this to categorize documents."></textarea>
           </div>
           
           <div class="form-group">
             <label for="namingPattern">Naming Pattern</label>
             <textarea id="namingPattern" class="form-textarea pattern-input" required 
                       placeholder="Example: {date}_{client_name}_{document_type}"></textarea>
-            <p class="variable-hint">Use {variable_name} to insert variable values</p>
+            <p class="variable-hint">Click variables below to insert them into your pattern</p>
             <div id="availableVariables" class="variable-list"></div>
           </div>
           
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Category</button>
+            <button type="submit" class="btn btn-primary">
+              <span>💾</span> Save Category
+            </button>
           </div>
         </form>
       </div>
@@ -117,20 +162,34 @@
           <div class="form-group">
             <label for="variableName">Variable Name</label>
             <input type="text" id="variableName" class="form-input" required 
-                   pattern="[a-z_]+" title="Use lowercase letters and underscores only">
+                   pattern="[a-z_]+" title="Use lowercase letters and underscores only"
+                   placeholder="e.g., date, client_name, invoice_number">
           </div>
           
           <div class="form-group">
             <label for="variableDescription">Description</label>
             <textarea id="variableDescription" class="form-textarea" required 
-                      placeholder="Describe what information this variable should extract..."></textarea>
+                      placeholder="Tell the AI what information to extract for this variable. Be specific!"></textarea>
           </div>
           
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Variable</button>
+            <button type="submit" class="btn btn-primary">
+              <span>💾</span> Save Variable
+            </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Processing Notification -->
+    <div id="notification" class="notification">
+      <div id="notificationIcon" class="notification-icon success">
+        <span>✓</span>
+      </div>
+      <div class="notification-content">
+        <h4 id="notificationTitle">Document Processed</h4>
+        <p id="notificationMessage">File has been organized successfully</p>
       </div>
     </div>
 
