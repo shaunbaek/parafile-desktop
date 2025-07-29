@@ -46,6 +46,8 @@
             </button>
           </div>
           
+          <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Settings</h4>
+          
           <div class="toggle-container">
             <label class="toggle-switch">
               <input type="checkbox" id="enableOrganization" checked>
@@ -55,6 +57,28 @@
               Organize files into category subfolders
             </label>
           </div>
+
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="startAtLogin">
+              <span class="toggle-slider"></span>
+            </label>
+            <label for="startAtLogin" class="toggle-label">
+              Start ParaFile when you log in
+            </label>
+          </div>
+
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="startMinimized">
+              <span class="toggle-slider"></span>
+            </label>
+            <label for="startMinimized" class="toggle-label">
+              Start minimized to system tray
+            </label>
+          </div>
+
+          <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Monitoring</h4>
           
           <div class="monitor-controls">
             <button id="monitorBtn" class="btn btn-success">

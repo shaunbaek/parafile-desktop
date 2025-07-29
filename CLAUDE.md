@@ -92,6 +92,32 @@ Configuration is stored in JSON format at `app.getPath('userData')/config.json`:
 - **GUI Mode**: `npm start` (default)
 - **Monitor Mode**: `npm run monitor` (headless background service)
 
+## Background Operation
+
+The application runs naturally in the background like Slack or Teams:
+
+### System Tray Integration
+- **Tray Icon**: Always visible in system tray when running
+- **Click to Toggle**: Single-click tray icon to show/hide main window
+- **Context Menu**: Right-click for quick actions (start/stop monitoring, settings, quit)
+- **Status Display**: Shows monitoring status and watched folder in tray menu
+
+### Window Management
+- **Close to Tray**: Closing the window minimizes to tray instead of quitting
+- **Auto-Hide**: App automatically hides to tray when not needed
+- **Focus Management**: Proper window focusing when restored from tray
+
+### Background Features
+- **Auto-Launch**: Optional startup with system login
+- **Silent Monitoring**: Continues processing files when window is hidden
+- **System Notifications**: Native OS notifications for processed files when in background
+- **Persistent Operation**: Keeps running even when main window is closed
+
+### User Preferences
+- **Start at Login**: Toggle auto-launch with system startup
+- **Start Minimized**: Option to start directly to tray
+- **Organization Mode**: Toggle file organization behavior
+
 ## Important Notes
 
 - Protected categories: "General" cannot be deleted
@@ -99,3 +125,5 @@ Configuration is stored in JSON format at `app.getPath('userData')/config.json`:
 - Configuration auto-repair on corruption
 - Atomic file operations to prevent data loss
 - DevTools disabled in production builds
+- System tray functionality requires platform-specific icons
+- Background processing continues regardless of window visibility

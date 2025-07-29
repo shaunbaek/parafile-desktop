@@ -18,8 +18,9 @@ function checkOnboarding() {
   const folderPath = document.getElementById('folderPath').value;
   const welcomeSection = document.getElementById('welcomeSection');
   const mainContent = document.getElementById('mainContent');
+  const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
   
-  if (!folderPath) {
+  if (!folderPath && !hasSeenWelcome) {
     welcomeSection.style.display = 'block';
     mainContent.style.display = 'none';
     
@@ -27,6 +28,9 @@ function checkOnboarding() {
     document.querySelectorAll('.control-section').forEach((section, index) => {
       if (index > 1) section.style.display = 'none';
     });
+  } else {
+    welcomeSection.style.display = 'none';
+    mainContent.style.display = 'block';
   }
 }
 
@@ -55,6 +59,16 @@ function setupEventListeners() {
       enable_organization: e.target.checked
     });
     currentConfig.enable_organization = e.target.checked;
+  });
+
+  // Auto-launch toggle
+  document.getElementById('startAtLogin').addEventListener('change', async (e) => {
+    await ipcRenderer.invoke('auto-launch:toggle');
+  });
+
+  // Start minimized toggle (store in localStorage for now)
+  document.getElementById('startMinimized').addEventListener('change', async (e) => {
+    localStorage.setItem('startMinimized', e.target.checked);
   });
   
   // Monitor controls
@@ -110,7 +124,8 @@ async function selectFolder() {
     });
     currentConfig.watched_folder = folderPath;
     
-    // Show all sections after folder selection
+    // Mark that user has seen welcome screen and show all sections
+    localStorage.setItem('hasSeenWelcome', 'true');
     document.getElementById('welcomeSection').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
     document.querySelectorAll('.control-section').forEach(section => {
@@ -172,12 +187,20 @@ function updateMonitorStatus(isRunning) {
 }
 
 // Update UI with current config
-function updateUI() {
+async function updateUI() {
   if (!currentConfig) return;
   
   // Update folder path
   document.getElementById('folderPath').value = currentConfig.watched_folder || '';
   document.getElementById('enableOrganization').checked = currentConfig.enable_organization;
+  
+  // Update auto-launch setting
+  const autoLaunchEnabled = await ipcRenderer.invoke('auto-launch:isEnabled');
+  document.getElementById('startAtLogin').checked = autoLaunchEnabled;
+  
+  // Update start minimized setting
+  const startMinimized = localStorage.getItem('startMinimized') === 'true';
+  document.getElementById('startMinimized').checked = startMinimized;
   
   // Update categories list
   renderCategories();
