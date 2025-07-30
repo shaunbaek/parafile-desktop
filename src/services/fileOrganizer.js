@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const fileMonitor = require('./fileMonitor');
 
 class FileOrganizer {
   async processFile(filePath, category, newName, config) {
@@ -20,6 +21,10 @@ class FileOrganizer {
     
     try {
       await fs.rename(filePath, targetPath);
+      
+      // Notify file monitor that this file was moved by ParaFile
+      fileMonitor.markFileAsMoved(filePath, targetPath);
+      
       return {
         success: true,
         originalPath: filePath,

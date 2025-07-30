@@ -17,7 +17,7 @@ class AIService {
     });
   }
 
-  async categorizeDocument(text, categories) {
+  async categorizeDocument(text, categories, expertise = 'general') {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
     }
@@ -26,14 +26,18 @@ class AIService {
       `- ${cat.name}: ${cat.description}`
     ).join('\n');
 
-    const systemPrompt = `You are a document categorization assistant. Analyze the provided document text and categorize it into one of the given categories.
+    const expertiseContext = expertise === 'legal' 
+      ? `You are a legal document categorization expert. Focus on legal terminology, document types, and legal document structures.`
+      : `You are a general document categorization assistant. Focus on common business and personal document types.`;
+
+    const systemPrompt = `${expertiseContext} Analyze the provided document text and categorize it into one of the given categories.
 
 Available categories:
 ${categoryList}
 
 Respond with a JSON object containing:
 - category: The name of the most appropriate category
-- reasoning: A brief explanation of why this category was chosen
+- reasoning: A detailed explanation of why this category was chosen (2-3 sentences explaining the key indicators and document characteristics that led to this categorization)
 - confidence: A number from 0 to 100 indicating your confidence level`;
 
     try {
@@ -146,13 +150,19 @@ Respond with a JSON object containing:
       .trim();
   }
 
-  async generateVariableSuggestion(userPrompt) {
+  async generateVariableSuggestion(userPrompt, expertise = 'general') {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
     }
 
-    const systemPrompt = `You are a helpful assistant that generates variable names and descriptions for a document processing system. 
-Based on the user's description of what information they want to extract from documents, generate:
+    const expertiseContext = expertise === 'legal' 
+      ? `You are a legal document processing expert. Focus on legal terminology, document types, and legal document structures when generating suggestions. Consider common legal document patterns like contracts, leases, court filings, corporate documents, etc.`
+      : `You are a general document processing assistant. Focus on common business and personal document types.`;
+
+    const systemPrompt = `${expertiseContext}
+
+Generate variable names and descriptions for a document processing system based on the user's description of what information they want to extract from documents:
+
 1. A concise, descriptive variable name (lowercase, using underscores for spaces)
 2. A clear description that explains what the AI should extract from documents
 
@@ -183,18 +193,30 @@ Respond with a JSON object containing:
     }
   }
 
-  async generateShortDescription(variableName, description) {
+  async generateShortDescription(variableName, description, expertise = 'general') {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
     }
 
-    const systemPrompt = `You are an expert at creating concise summaries. Given a variable name and its detailed description, generate a brief 3-5 word phrase that captures what this variable represents.
+    const expertiseContext = expertise === 'legal' 
+      ? `You are a legal document processing expert. Use appropriate legal terminology in your short descriptions.`
+      : `You are a general document processing assistant.`;
 
-Examples:
+    const examples = expertise === 'legal'
+      ? `Examples:
+- Variable: contract_date, Description: "The effective date of the contract..." → Short: "Contract effective date"
+- Variable: party_name, Description: "The legal name of the first party..." → Short: "First party name"
+- Variable: case_number, Description: "The court case number found in the header..." → Short: "Court case number"
+- Variable: lease_term, Description: "The duration of the lease agreement..." → Short: "Lease term duration"`
+      : `Examples:
 - Variable: invoice_date, Description: "The date when the invoice was issued..." → Short: "Invoice issue date"
 - Variable: client_name, Description: "The full legal name of the client company..." → Short: "Client company name"
 - Variable: total_amount, Description: "The total payment amount including taxes..." → Short: "Total payment amount"
-- Variable: case_number, Description: "The court case number found in the header..." → Short: "Court case number"
+- Variable: document_type, Description: "The type of document being processed..." → Short: "Document type"`;
+
+    const systemPrompt = `${expertiseContext} Given a variable name and its detailed description, generate a brief 3-5 word phrase that captures what this variable represents.
+
+${examples}
 
 Respond with a JSON object containing:
 - shortDescription: A brief 3-5 word phrase (no periods, capitalize first word only)`;
@@ -220,12 +242,39 @@ Respond with a JSON object containing:
     }
   }
 
-  async evaluateVariableDescription(variableName, description) {
+  async evaluateVariableDescription(variableName, description, expertise = 'general') {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
     }
 
-    const systemPrompt = `You are an expert at evaluating variable descriptions for a document processing AI system, with specialized knowledge of legal documents.
+    const expertiseContext = expertise === 'legal' 
+      ? `You are an expert at evaluating variable descriptions for a document processing AI system, with specialized knowledge of legal documents.`
+      : `You are an expert at evaluating variable descriptions for a document processing AI system, focused on general business and personal documents.`;
+
+    const expertiseGuidelines = expertise === 'legal'
+      ? `For LEGAL DOCUMENTS specifically, ensure descriptions address:
+- Common legal terminology variations (e.g., "Effective Date" vs "Commencement Date" vs "As of")
+- Document structure patterns (e.g., "typically found in the preamble" or "usually in section headers")
+- Party identification (e.g., "first party/second party", "plaintiff/defendant", "lessor/lessee")
+- Legal formatting conventions (e.g., "amounts often written in both numbers and words")
+- Signature blocks and execution details (e.g., "found near signature lines", "in the attestation clause")
+- Common legal document types and their unique patterns:
+  * Contracts: parties section, recitals, terms, signature blocks
+  * Leases: premises description, term, rent amount
+  * Court documents: case numbers, filing dates, docket numbers
+  * Corporate documents: entity names, registration numbers, authorized signatories
+- Jurisdictional variations (e.g., "state-specific format", "follows federal guidelines")
+- Legal date formats (e.g., "the ___ day of ___, 20__")
+- Reference handling (e.g., "may reference exhibits", "defined terms in quotes or capitals")`
+      : `For GENERAL DOCUMENTS, ensure descriptions address:
+- Common business document patterns (invoices, receipts, reports, letters)
+- Standard formatting conventions for different document types
+- Typical locations of information (headers, footers, specific sections)
+- Date and number formats commonly used in business documents
+- Contact information patterns (names, addresses, phone numbers, emails)
+- Financial information formats (currency, percentages, totals)`;
+
+    const systemPrompt = `${expertiseContext}
 Your task is to evaluate if the given description provides enough specific information for an AI to reliably extract the correct data from documents.
 
 Variable name: ${variableName}
@@ -243,20 +292,7 @@ Good descriptions should:
 - Mention context clues or document sections where the information is typically found
 - Avoid ambiguity about what constitutes the correct value
 
-For LEGAL DOCUMENTS specifically, ensure descriptions address:
-- Common legal terminology variations (e.g., "Effective Date" vs "Commencement Date" vs "As of")
-- Document structure patterns (e.g., "typically found in the preamble" or "usually in section headers")
-- Party identification (e.g., "first party/second party", "plaintiff/defendant", "lessor/lessee")
-- Legal formatting conventions (e.g., "amounts often written in both numbers and words")
-- Signature blocks and execution details (e.g., "found near signature lines", "in the attestation clause")
-- Common legal document types and their unique patterns:
-  * Contracts: parties section, recitals, terms, signature blocks
-  * Leases: premises description, term, rent amount
-  * Court documents: case numbers, filing dates, docket numbers
-  * Corporate documents: entity names, registration numbers, authorized signatories
-- Jurisdictional variations (e.g., "state-specific format", "follows federal guidelines")
-- Legal date formats (e.g., "the ___ day of ___, 20__")
-- Reference handling (e.g., "may reference exhibits", "defined terms in quotes or capitals")`;
+${expertiseGuidelines}`;
 
     try {
       const response = await this.openai.chat.completions.create({

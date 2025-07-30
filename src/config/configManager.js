@@ -5,10 +5,12 @@ const { app } = require('electron');
 class ConfigManager {
   constructor() {
     this.configPath = path.join(app.getPath('userData'), 'config.json');
+    this.logPath = path.join(app.getPath('userData'), 'processing-log.json');
     this.defaultConfig = {
       watched_folder: '',
       enable_organization: true,
       openai_api_key: '',
+      expertise: 'general',
       categories: [
         {
           name: 'General',
@@ -60,6 +62,7 @@ class ConfigManager {
       watched_folder: config.watched_folder || '',
       enable_organization: config.enable_organization !== false,
       openai_api_key: config.openai_api_key || '',
+      expertise: config.expertise || 'general',
       categories: Array.isArray(config.categories) ? config.categories : [],
       variables: Array.isArray(config.variables) ? config.variables : []
     };
@@ -146,8 +149,107 @@ class ConfigManager {
     if (settings.openai_api_key !== undefined) {
       config.openai_api_key = settings.openai_api_key;
     }
+    if (settings.expertise !== undefined) {
+      config.expertise = settings.expertise;
+    }
     await this.save(config);
     return config;
+  }
+
+  // Processing Log Management
+  async loadLog() {
+    try {
+      const data = await fs.readFile(this.logPath, 'utf8');
+      const logs = JSON.parse(data);
+      return Array.isArray(logs) ? logs : [];
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return [];
+      }
+      console.error('Error loading processing log:', error);
+      return [];
+    }
+  }
+
+  async saveLog(logs) {
+    try {
+      // Keep only the last 100 entries
+      const trimmedLogs = logs.slice(-100);
+      await fs.writeFile(this.logPath, JSON.stringify(trimmedLogs, null, 2));
+      return true;
+    } catch (error) {
+      console.error('Error saving processing log:', error);
+      return false;
+    }
+  }
+
+  async addLogEntry(entry) {
+    const logs = await this.loadLog();
+    const logEntry = {
+      id: Date.now() + Math.random(), // Unique ID
+      timestamp: new Date().toISOString(),
+      originalName: entry.originalName,
+      parafileName: entry.parafileName,
+      category: entry.category,
+      reasoning: entry.reasoning,
+      success: entry.success,
+      corrected: false,
+      corrections: []
+    };
+    
+    logs.push(logEntry);
+    await this.saveLog(logs);
+    return logEntry;
+  }
+
+  async updateLogEntry(id, updates) {
+    const logs = await this.loadLog();
+    const index = logs.findIndex(log => log.id === id);
+    
+    if (index >= 0) {
+      logs[index] = { ...logs[index], ...updates };
+      await this.saveLog(logs);
+      return logs[index];
+    }
+    
+    return null;
+  }
+
+  async clearLog() {
+    try {
+      await fs.writeFile(this.logPath, JSON.stringify([], null, 2));
+      return true;
+    } catch (error) {
+      console.error('Error clearing processing log:', error);
+      return false;
+    }
+  }
+
+  async addLogCorrection(id, correction) {
+    const logs = await this.loadLog();
+    const index = logs.findIndex(log => log.id === id);
+    
+    if (index >= 0) {
+      if (!logs[index].corrections) {
+        logs[index].corrections = [];
+      }
+      
+      logs[index].corrections.push({
+        timestamp: new Date().toISOString(),
+        oldCategory: logs[index].category,
+        newCategory: correction.newCategory,
+        feedback: correction.feedback,
+        user: 'user' // Could be extended for multi-user scenarios
+      });
+      
+      logs[index].corrected = true;
+      logs[index].category = correction.newCategory; // Update the display category
+      
+      await this.saveLog(logs);
+      return logs[index];
+    }
+    
+    return null;
   }
 }
 

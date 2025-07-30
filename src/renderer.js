@@ -12,142 +12,28 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeDragAndDrop();
 });
 
-// Check if first time user
-function checkOnboarding() {
-  const apiKey = currentConfig ? currentConfig.openai_api_key : '';
-  const folderPath = currentConfig ? currentConfig.watched_folder : '';
-  const welcomeSection = document.getElementById('welcomeSection');
-  const mainContent = document.getElementById('mainContent');
-  const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-  
-  // Show welcome only if API key is missing (folder can be selected later)
-  // If API key is configured, skip welcome
-  const hasApiKey = apiKey && apiKey.trim() !== '';
-  
-  if (!hasApiKey && !hasSeenWelcome) {
-    welcomeSection.style.display = 'block';
-    mainContent.style.display = 'none';
-    
-    // Hide other sections initially for clean onboarding
-    document.querySelectorAll('.control-section').forEach((section, index) => {
-      if (index > 1) section.style.display = 'none';
-    });
-    
-    // Update onboarding steps
-    updateOnboardingSteps();
-  } else {
-    // If user has previous configuration OR has seen welcome, skip to main app
-    welcomeSection.style.display = 'none';
-    mainContent.style.display = 'block';
-    
-    // Show all sections for returning users
-    document.querySelectorAll('.control-section').forEach(section => {
-      section.style.display = 'block';
-    });
-  }
-}
 
-// Update onboarding steps status
-function updateOnboardingSteps() {
-  const apiKey = currentConfig ? currentConfig.openai_api_key : '';
-  const folderPath = currentConfig ? currentConfig.watched_folder : '';
+// Check if first time user and show introduction
+function checkFirstTimeUser() {
+  const hasSeenIntro = localStorage.getItem('hasSeenIntroWalkthrough');
   
-  console.log('updateOnboardingSteps called:', { apiKey: !!apiKey, folderPath: !!folderPath });
-  
-  const step1 = document.getElementById('step1');
-  const step1Status = document.getElementById('step1Status');
-  const step2 = document.getElementById('step2');
-  const step2Status = document.getElementById('step2Status');
-  const selectFolderBtn = document.getElementById('selectFolderBtn');
-  
-  // Step 1: API Key
-  if (apiKey) {
-    step1.classList.add('completed');
-    step1Status.textContent = '✓ Configured';
-    step1Status.className = 'step-status success';
-    
-    // Enable step 2
-    selectFolderBtn.disabled = false;
-    selectFolderBtn.classList.remove('btn-secondary');
-    selectFolderBtn.classList.add('btn-primary');
-  } else {
-    step1.classList.remove('completed');
-    step1Status.textContent = '';
-    step1Status.className = 'step-status';
-    
-    // Disable step 2
-    selectFolderBtn.disabled = true;
-    selectFolderBtn.classList.remove('btn-primary');
-    selectFolderBtn.classList.add('btn-secondary');
-  }
-  
-  // Step 2: Folder
-  if (folderPath) {
-    step2.classList.add('completed');
-    step2Status.textContent = '✓ Selected';
-    step2Status.className = 'step-status success';
-  } else {
-    step2.classList.remove('completed');
-    step2Status.textContent = '';
-    step2Status.className = 'step-status';
-  }
-  
-  // Complete onboarding if API key is configured (folder is optional for initial setup)
-  if (apiKey) {
-    console.log('API key configured, completing onboarding...');
+  if (!hasSeenIntro) {
+    // Show introduction walkthrough
     setTimeout(() => {
-      completeOnboarding();
-    }, 1000);
+      showIntroWalkthrough();
+    }, 500);
   }
-}
-
-// Complete onboarding
-function completeOnboarding() {
-  console.log('completeOnboarding() called');
-  localStorage.setItem('hasSeenWelcome', 'true');
-  
-  const welcomeSection = document.getElementById('welcomeSection');
-  const mainContent = document.getElementById('mainContent');
-  
-  console.log('Welcome section current display:', welcomeSection.style.display);
-  console.log('Main content current display:', mainContent.style.display);
-  
-  welcomeSection.style.display = 'none';
-  mainContent.style.display = 'block';
-  
-  console.log('After change - Welcome section display:', welcomeSection.style.display);
-  console.log('After change - Main content display:', mainContent.style.display);
-  
-  document.querySelectorAll('.control-section').forEach(section => {
-    section.style.display = 'block';
-  });
-  
-  showNotification('Setup Complete', 'ParaFile is ready to organize your documents!', 'success');
 }
 
 // Load configuration
 async function loadConfig() {
   currentConfig = await ipcRenderer.invoke('config:load');
   updateUI();
-  checkOnboarding();
+  checkFirstTimeUser();
 }
 
 // Setup event listeners
 function setupEventListeners() {
-  // Onboarding buttons
-  const configureApiBtn = document.getElementById('configureApiBtn');
-  if (configureApiBtn) {
-    configureApiBtn.addEventListener('click', () => {
-      showSettingsModal();
-    });
-  }
-  
-  const selectFolderBtn = document.getElementById('selectFolderBtn');
-  if (selectFolderBtn) {
-    selectFolderBtn.addEventListener('click', () => {
-      selectFolder();
-    });
-  }
   
   // Folder selection
   document.getElementById('browseBtn').addEventListener('click', selectFolder);
@@ -158,6 +44,25 @@ function setupEventListeners() {
       enable_organization: e.target.checked
     });
     currentConfig.enable_organization = e.target.checked;
+  });
+
+  // Expertise change handlers
+  document.getElementById('mainExpertiseGeneral').addEventListener('change', async (e) => {
+    if (e.target.checked) {
+      await ipcRenderer.invoke('config:updateSettings', {
+        expertise: 'general'
+      });
+      currentConfig.expertise = 'general';
+    }
+  });
+
+  document.getElementById('mainExpertiseLegal').addEventListener('change', async (e) => {
+    if (e.target.checked) {
+      await ipcRenderer.invoke('config:updateSettings', {
+        expertise: 'legal'
+      });
+      currentConfig.expertise = 'legal';
+    }
   });
 
   
@@ -181,6 +86,11 @@ function setupEventListeners() {
   
   // Settings
   document.getElementById('settingsBtn').addEventListener('click', () => showSettingsModal());
+  
+  // Open processing log
+  document.getElementById('openLogBtn').addEventListener('click', async () => {
+    await ipcRenderer.invoke('window:openLog');
+  });
   
   // Modal controls
   setupModalControls();
@@ -226,21 +136,6 @@ async function selectFolder() {
     });
     currentConfig.watched_folder = folderPath;
     
-    // Update onboarding if we're in welcome mode
-    const welcomeSection = document.getElementById('welcomeSection');
-    console.log('Folder selected, checking if in welcome mode. Welcome display:', welcomeSection.style.display);
-    if (welcomeSection.style.display !== 'none') {
-      console.log('In welcome mode, updating onboarding steps');
-      updateOnboardingSteps();
-    } else {
-      // Mark that user has seen welcome screen and show all sections
-      localStorage.setItem('hasSeenWelcome', 'true');
-      document.getElementById('welcomeSection').style.display = 'none';
-      document.getElementById('mainContent').style.display = 'block';
-      document.querySelectorAll('.control-section').forEach(section => {
-        section.style.display = 'block';
-      });
-    }
     
     // Show drop zone when monitoring
     const isRunning = await ipcRenderer.invoke('monitor:status');
@@ -332,6 +227,13 @@ async function updateUI() {
   // Update folder path
   document.getElementById('folderPath').value = currentConfig.watched_folder || '';
   document.getElementById('enableOrganization').checked = currentConfig.enable_organization;
+  
+  // Update expertise selection
+  const expertise = currentConfig.expertise || 'general';
+  const expertiseRadio = document.getElementById(expertise === 'legal' ? 'mainExpertiseLegal' : 'mainExpertiseGeneral');
+  if (expertiseRadio) {
+    expertiseRadio.checked = true;
+  }
   
   // Update categories list
   renderCategories();
@@ -460,6 +362,7 @@ async function showSettingsModal() {
   } else {
     form.reset();
   }
+  
   
   // Load minimize to tray setting
   const minimizeToTray = localStorage.getItem('minimizeToTray') === 'true';
@@ -671,12 +574,10 @@ function setupModalControls() {
     
     document.getElementById('settingsModal').classList.remove('active');
     showNotification('Success', 'Settings saved successfully', 'success');
-    
-    // Update onboarding if we're in welcome mode
-    if (document.getElementById('welcomeSection').style.display !== 'none') {
-      updateOnboardingSteps();
-    }
   });
+  
+  // Introduction walkthrough handlers
+  setupIntroWalkthroughHandlers();
   
   // Test API key button
   document.getElementById('testApiKeyBtn').addEventListener('click', async () => {
@@ -906,3 +807,72 @@ window.deleteVariable = async (index) => {
 };
 
 window.insertVariable = insertVariable;
+
+// Introduction Walkthrough Functions
+function showIntroWalkthrough() {
+  const modal = document.getElementById('introWalkthroughModal');
+  modal.classList.add('active');
+  showIntroStep(1);
+}
+
+function showIntroStep(stepNumber) {
+  // Hide all steps
+  document.querySelectorAll('.intro-step').forEach(step => {
+    step.style.display = 'none';
+  });
+  
+  // Show current step
+  const currentStep = document.getElementById(`introStep${stepNumber}`);
+  if (currentStep) {
+    currentStep.style.display = 'block';
+  }
+}
+
+function setupIntroWalkthroughHandlers() {
+  // Step 1 handlers
+  document.getElementById('nextStep1Btn').addEventListener('click', () => {
+    showIntroStep(2);
+  });
+  
+  document.getElementById('skipIntroBtn').addEventListener('click', () => {
+    finishIntroWalkthrough();
+  });
+  
+  // Step 2 handlers
+  document.getElementById('backStep2Btn').addEventListener('click', () => {
+    showIntroStep(1);
+  });
+  
+  document.getElementById('nextStep2Btn').addEventListener('click', () => {
+    showIntroStep(3);
+  });
+  
+  // Step 3 handlers
+  document.getElementById('backStep3Btn').addEventListener('click', () => {
+    showIntroStep(2);
+  });
+  
+  document.getElementById('nextStep3Btn').addEventListener('click', () => {
+    showIntroStep(4);
+  });
+  
+  // Step 4 handlers
+  document.getElementById('backStep4Btn').addEventListener('click', () => {
+    showIntroStep(3);
+  });
+  
+  document.getElementById('finishIntroBtn').addEventListener('click', () => {
+    finishIntroWalkthrough();
+  });
+}
+
+function finishIntroWalkthrough() {
+  // Mark as seen so it never shows again
+  localStorage.setItem('hasSeenIntroWalkthrough', 'true');
+  
+  // Close the modal
+  document.getElementById('introWalkthroughModal').classList.remove('active');
+  
+  // Show completion notification
+  showNotification('Welcome!', 'You can now start using ParaFile to organize your documents', 'success');
+}

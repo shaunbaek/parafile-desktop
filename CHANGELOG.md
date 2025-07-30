@@ -4,6 +4,136 @@ All notable changes to ParaFile Desktop will be documented in this file.
 
 ## [Unreleased] - 2025-07-30
 
+### Added - Processing Log System
+- **Comprehensive Processing Log**: Added dedicated processing log window accessible via "📋 Open Processing Log" button
+  - Separate log window (1400x800px) with detailed processing history table
+  - Columns: Original Name, ParaFiled Name, Category, Reasoning, Date, Status
+  - Real-time updates when new documents are processed or corrections are made
+  - Processing status badges: Processed (blue), Failed (red), Corrected (green)
+
+- **AI-Generated Categorization Reasoning**: Enhanced AI service to provide detailed explanations
+  - 2-3 sentence explanations of why documents were categorized into specific categories
+  - Key indicators and document characteristics analysis
+  - Expertise-aware reasoning (General vs Legal document patterns)
+  - Reasoning stored and displayed in processing log for transparency
+
+- **Interactive Categorization Correction System**: Click any log row to fix categorization errors
+  - Correction modal shows original file name, current category, and AI reasoning
+  - Dropdown to select correct category from available options
+  - Optional feedback field to explain why categorization was incorrect
+  - Correction history tracking with timestamps and user feedback
+  - Corrected entries visually distinguished in log with green highlighting
+
+- **User File Movement Detection**: System now detects and logs when users manually move files
+  - Distinguishes between ParaFile-moved files and user-moved files
+  - Logs user moves as "User Moved" entries with location information
+  - No reprocessing of user-moved files, only acknowledgment logging
+
+- **Duplicate Processing Prevention**: Comprehensive system to prevent duplicate log entries
+  - Smart file tracking by filename for 10-minute windows
+  - Only processes files on 'add' events, ignoring 'change' events
+  - Marks ParaFile-moved files to prevent recursive processing
+  - Console logging for debugging file detection and processing decisions
+
+### Technical Implementation - Processing Log
+
+#### Backend Components
+- **src/config/configManager.js**:
+  - Added `loadLog()`, `saveLog()`, `addLogEntry()`, `clearLog()` methods (lines 160-253)
+  - Log storage in `processing-log.json` with automatic 100-entry limit
+  - Added `addLogCorrection()` method for tracking categorization fixes
+  - Log entries include: ID, timestamp, file names, category, reasoning, success status, corrections array
+
+- **src/services/fileMonitor.js**:
+  - Enhanced with smart duplicate prevention system (lines 10-12, 81-129)
+  - Added `processedFiles` and `parafileMovedFiles` tracking sets
+  - Added `markFileAsMoved()` method to prevent recursive processing (lines 131-139)
+  - Added `file-moved-by-user` event emission for user file movements (lines 96-105)
+  - Only processes 'add' events, ignores 'change' events to prevent duplicates
+
+- **src/services/fileOrganizer.js**:
+  - Integrated with file monitor to mark moved files (lines 25-26)
+  - Calls `fileMonitor.markFileAsMoved()` after successful file operations
+
+- **src/services/aiService.js**:
+  - Enhanced `categorizeDocument()` method with expertise parameter (line 20)
+  - Updated to generate detailed reasoning (2-3 sentences) explaining categorization decisions (lines 39-40)
+  - Expertise-aware prompts for General vs Legal document processing
+
+#### Frontend Components
+- **src/processing-log.html**: New dedicated log window interface
+  - Full-featured log table with sorting and interaction capabilities
+  - Correction modal integrated into log window
+  - Refresh and clear log functionality
+  - Responsive design matching main application styling
+
+- **src/processing-log-renderer.js**: Complete log window functionality
+  - Real-time log loading and rendering with status badges
+  - Interactive row clicking for corrections
+  - Modal handling for categorization corrections
+  - IPC communication with main process for log operations
+
+- **src/index.js**:
+  - Added `createLogWindow()` function for separate log window (lines 67-96)
+  - Added IPC handlers for log operations: `log:load`, `log:clear`, `log:addCorrection` (lines 478-502)
+  - Added `window:openLog` handler to open log window (lines 499-502)
+  - Enhanced file processing event handler to log results (lines 512-528)
+  - Added `file-moved-by-user` event handler for user file movements (lines 578-606)
+
+- **src/index.html**:
+  - Replaced embedded log table with simple "Open Processing Log" button (lines 93-105)
+  - Maintains clean main interface while providing easy access to detailed logs
+
+- **src/renderer.js**:
+  - Added event listener for "Open Processing Log" button (lines 90-93)
+  - IPC communication to request log window opening
+
+#### Styling and UX
+- **src/index.css**:
+  - Added log table styles with hover effects and transitions (lines 418-440)
+  - Sticky table headers for better navigation in long logs
+  - Smooth hover animations and visual feedback
+
+### User Experience Improvements - Processing Log
+
+#### Processing Transparency
+1. **Detailed Reasoning**: Users can see exactly why AI categorized each document
+2. **Processing History**: Complete audit trail of all document processing activities
+3. **Error Correction**: Easy correction system for improving categorization accuracy
+4. **User Action Tracking**: System acknowledges when users manually organize files
+
+#### Categorization Improvement Workflow
+1. **Process Documents**: Files are automatically categorized with AI reasoning
+2. **Review Results**: Open processing log to review categorization decisions
+3. **Make Corrections**: Click incorrect entries to fix categorization
+4. **Provide Feedback**: Optional feedback helps understand correction reasoning
+5. **Track Improvements**: Corrected entries are visually marked for reference
+
+#### File Management
+1. **Duplicate Prevention**: Each file is processed exactly once, preventing log spam
+2. **User Respect**: System respects user file movements without interference
+3. **Smart Detection**: Distinguishes between ParaFile actions and user actions
+4. **Transparent Logging**: All file activities are logged with clear reasoning
+
+### Bug Fixes - Processing Log
+- **Fixed Duplicate Processing**: Comprehensive prevention of duplicate log entries
+  - Files moved by ParaFile no longer trigger reprocessing
+  - Smart tracking prevents the same file from being processed multiple times
+  - Only truly new files are processed, existing files are left alone
+
+- **Fixed Recursive Processing Loop**: 
+  - ParaFile moving files to category subfolders no longer triggers new processing
+  - File monitor marks ParaFile-moved files to prevent recursive detection
+  - Temporary tracking sets clean up automatically to prevent memory leaks
+
+### Migration Notes - Processing Log
+- **Automatic Log Creation**: Processing log is created automatically on first use
+- **Backward Compatibility**: Existing configurations continue to work unchanged  
+- **Performance Impact**: Minimal impact with automatic log rotation (100 entries max)
+- **Storage Location**: Logs stored in user data directory alongside configuration
+
+## [Previous Entries] - 2025-07-30
+
 ### Added
 - **AI-Powered Variable Generation**: Users can now generate variable names and descriptions using AI
   - Added "AI Suggest" button in the Add Variable modal
@@ -28,6 +158,13 @@ All notable changes to ParaFile Desktop will be documented in this file.
   - Added "Keep running in background when window is closed" toggle
   - X button behavior based on user preference (minimize to tray vs quit)
 
+- **AI Expertise System**: Configurable AI assistant specialization
+  - Added Expertise section to Settings with General and Legal options
+  - Default setting is General for backward compatibility
+  - AI suggestions, evaluations, and descriptions adapt based on selected expertise
+  - Legal expertise includes specialized legal document patterns and terminology
+  - General expertise focuses on common business and personal documents
+
 ### Fixed
 - **Onboarding Screen Issue**: Fixed welcome screen repeatedly showing after API key configuration
   - Welcome screen now only shows when API key is missing (not when folder is missing)
@@ -48,7 +185,8 @@ All notable changes to ParaFile Desktop will be documented in this file.
   - Added Description Suggestion modal with issue analysis (lines 333-374)
   - Created Variable Details popup modal (lines 364-393)
   - Added Loading modal for AI operations (lines 395-405)
-  - Simplified system integration settings (lines 260-275)
+  - Added Expertise section with radio buttons to Settings (lines 260-276)
+  - Simplified system integration settings (lines 278-290)
   - Removed redundant close button from Variable Details modal
 
 #### Frontend (Logic)
@@ -61,29 +199,36 @@ All notable changes to ParaFile Desktop will be documented in this file.
   - Updated `renderVariables()` to show short descriptions and make entire item clickable (lines 392-409)
   - Enhanced `saveVariable()` to generate short descriptions at final step (lines 723-751)
   - Added loading modal helpers (lines 771-774)
-  - Updated settings handling for minimize to tray preference (lines 658-681)
+  - Updated settings handling for expertise and minimize to tray preferences (lines 656-682)
+  - Enhanced `showSettingsModal()` to load expertise setting (lines 464-469)
   - Fixed onboarding logic to check only API key presence (lines 25-47)
 
 #### Backend
 - **src/services/aiService.js**:
-  - Added `generateVariableSuggestion()` method (lines 149-184)
-  - Added `evaluateVariableDescription()` method with legal document expertise (lines 223-265)
-  - Added `generateShortDescription()` method for final step generation (lines 186-221)
-  - Enhanced evaluation prompts with comprehensive legal document guidelines
-  - Includes patterns for contracts, leases, court documents, corporate documents
-  - Addresses legal terminology variations and formatting conventions
+  - Enhanced `generateVariableSuggestion()` method with expertise context (lines 149-184)
+  - Enhanced `evaluateVariableDescription()` method with expertise-specific guidelines (lines 241-305)
+  - Enhanced `generateShortDescription()` method with expertise-aware examples (lines 192-239)
+  - Legal expertise includes comprehensive legal document patterns and terminology
+  - General expertise focuses on common business and personal document types
+  - All methods now accept expertise parameter with context-aware prompts
 
 - **src/index.js**:
   - Imported aiService module (line 9)
-  - Added IPC handler `api:generateVariable` (lines 392-408)
-  - Added IPC handler `api:evaluateDescription` (lines 410-426)
-  - Added IPC handler `api:generateShortDescription` (lines 428-444)
+  - Enhanced IPC handler `api:generateVariable` to pass expertise (lines 392-408)
+  - Enhanced IPC handler `api:evaluateDescription` to pass expertise (lines 410-426)
+  - Enhanced IPC handler `api:generateShortDescription` to pass expertise (lines 428-444)
   - Updated window close behavior to check minimize preference (lines 47-61)
   - Removed auto-launch related code and imports
+
+- **src/config/configManager.js**:
+  - Added `expertise: 'general'` to default configuration (line 12)
+  - Updated `validateAndRepair()` method to include expertise field (line 64)
+  - Ensures backward compatibility with existing configurations
 
 #### Styling
 - **src/index.css**:
   - Added hover effects for clickable variable items (lines 486-490)
+  - Added custom radio button styles for expertise selection (lines 375-416)
   - Enhanced list item interactivity with smooth transitions
 
 ### User Experience Improvements
@@ -106,13 +251,22 @@ All notable changes to ParaFile Desktop will be documented in this file.
 2. **Intuitive Tray Behavior**: Single toggle for background operation
 3. **User Control**: X button behavior matches user preference
 
+#### AI Expertise System
+1. **Configurable Specialization**: Choose between General and Legal expertise modes
+2. **Context-Aware Responses**: AI suggestions adapt to selected expertise level
+3. **Legal Document Focus**: Specialized legal terminology and document patterns when Legal mode is selected
+4. **General Business Focus**: Common business and personal document patterns in General mode
+5. **Persistent Settings**: Expertise preference is saved and applied to all AI operations
+
 ### Workflow Changes
 1. **Variable Creation Flow**:
-   - User creates variable → AI evaluates description → User finalizes → AI generates short description → Save
+   - User creates variable → AI evaluates description (using selected expertise) → User finalizes → AI generates short description → Save
 2. **Description Evaluation**:
-   - Loading modal during evaluation → Issues displayed if found → User can keep original or save edited version
+   - Loading modal during evaluation → Issues displayed if found (expertise-specific) → User can keep original or save edited version
 3. **Variable Display**:
    - Short descriptions shown in list → Click anywhere for full details popup → Clean modal without redundant buttons
+4. **Expertise Configuration**:
+   - Settings → Expertise section → Select General or Legal → All AI operations use selected expertise level
 
 ## [1.0.0] - 2025-07-29
 

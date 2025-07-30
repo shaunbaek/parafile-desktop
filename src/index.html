@@ -22,46 +22,6 @@
 
       <!-- Main panel -->
       <div class="main-panel">
-        <!-- Welcome/Onboarding Section (shown when no API key or folder selected) -->
-        <div id="welcomeSection" class="control-section" style="display: none;">
-          <div style="text-align: center; padding: 40px 20px;">
-            <div style="font-size: 64px; margin-bottom: 20px;">🤖</div>
-            <h2 style="font-size: 28px; margin-bottom: 15px; color: var(--dark);">Welcome to ParaFile!</h2>
-            <p style="font-size: 16px; color: #232323; opacity: 0.8; margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
-              Let's get you set up! First, you'll need to configure your OpenAI API key so ParaFile can intelligently organize your documents.
-            </p>
-            
-            <div id="onboardingSteps" style="text-align: left; max-width: 400px; margin: 0 auto 30px auto;">
-              <div class="onboarding-step" id="step1">
-                <div class="step-number">1</div>
-                <div class="step-content">
-                  <h4>Configure OpenAI API Key</h4>
-                  <p>Set up your API key for AI-powered document analysis</p>
-                  <button id="configureApiBtn" class="btn btn-primary btn-small">
-                    <span>⚙️</span> Configure API Key
-                  </button>
-                  <span id="step1Status" class="step-status"></span>
-                </div>
-              </div>
-              
-              <div class="onboarding-step" id="step2">
-                <div class="step-number">2</div>
-                <div class="step-content">
-                  <h4>Select Folder to Monitor</h4>
-                  <p>Choose a folder where your documents will be organized (includes all subdirectories)</p>
-                  <button id="selectFolderBtn" class="btn btn-secondary btn-small" disabled>
-                    <span>📁</span> Select Folder
-                  </button>
-                  <span id="step2Status" class="step-status"></span>
-                </div>
-              </div>
-            </div>
-            
-            <p style="font-size: 14px; color: #232323; opacity: 0.6; margin-top: 20px;">
-              Need an API key? Get one from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--primary);">OpenAI Platform</a>
-            </p>
-          </div>
-        </div>
 
         <!-- Folder Selection Section -->
         <div id="mainContent" class="control-section">
@@ -89,6 +49,23 @@
           </div>
 
 
+          <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Expertise</h4>
+          
+          <div class="expertise-selector" style="margin-bottom: 25px;">
+            <div style="display: flex; gap: 20px; align-items: center;">
+              <label class="radio-option">
+                <input type="radio" name="mainExpertise" value="general" id="mainExpertiseGeneral" checked>
+                <span class="radio-custom"></span>
+                <span>General</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="mainExpertise" value="legal" id="mainExpertiseLegal">
+                <span class="radio-custom"></span>
+                <span>Legal</span>
+              </label>
+            </div>
+          </div>
+
           <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Monitoring</h4>
           
           <div class="monitor-controls">
@@ -111,6 +88,20 @@
           <div id="dropZone" class="drop-zone" style="display: none;">
             <div class="drop-zone-icon">📄</div>
             <p>Drag and drop PDF or Word files here for instant processing</p>
+          </div>
+
+          <!-- Processing Log -->
+          <div style="margin-top: 30px;">
+            <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Processing Log</h4>
+            
+            <div style="background: var(--background); border-radius: 15px; padding: 20px; border: 1px solid #e0e0e0;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <p style="margin: 0; color: #666; font-size: 14px;">View detailed processing results and correct categorization errors</p>
+                <button id="openLogBtn" class="btn btn-primary btn-small">
+                  <span>📋</span> Open Processing Log
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -380,6 +371,127 @@
           <div class="form-group">
             <label style="font-weight: bold; color: var(--primary);">Full Description</label>
             <div id="detailsFullDescription" style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px; line-height: 1.6;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log Correction Modal -->
+    <div id="logCorrectionModal" class="modal">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>Correct Categorization</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Original File Name</label>
+            <p id="correctionOriginalName" style="font-family: monospace; background: var(--tertiary); padding: 10px; border-radius: 8px; margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Current Category</label>
+            <p id="correctionCurrentCategory" style="margin-top: 5px; padding: 8px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffeaa7;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">AI Reasoning</label>
+            <div id="correctionReasoning" style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px; line-height: 1.6; font-style: italic;"></div>
+          </div>
+          
+          <div class="form-group">
+            <label for="correctionNewCategory" style="font-weight: bold; color: var(--primary);">Correct Category</label>
+            <select id="correctionNewCategory" class="form-input" style="margin-top: 5px;">
+              <option value="">Select the correct category...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="correctionFeedback" style="font-weight: bold; color: var(--primary);">Feedback (Optional)</label>
+            <textarea id="correctionFeedback" class="form-textarea" style="margin-top: 5px;" 
+                      placeholder="Why was this categorization incorrect? This helps improve future categorization..."></textarea>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveCorrectionBtn">
+            <span>💾</span> Save Correction
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Introduction Walkthrough Modal -->
+    <div id="introWalkthroughModal" class="modal">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2 id="introTitle">Welcome to ParaFile!</h2>
+        </div>
+        
+        <div class="modal-body">
+          <div id="introStep1" class="intro-step">
+            <div style="text-align: center; padding: 20px;">
+              <div style="font-size: 64px; margin-bottom: 20px;">🤖</div>
+              <h3 style="margin-bottom: 15px; color: var(--primary);">AI-Powered Document Organization</h3>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                ParaFile automatically organizes your PDF and Word documents using artificial intelligence. 
+                It can categorize files, extract information, and rename them based on their content.
+              </p>
+              <div style="display: flex; justify-content: center; gap: 15px; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" id="skipIntroBtn">Skip Tour</button>
+                <button type="button" class="btn btn-primary" id="nextStep1Btn">Next</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="introStep2" class="intro-step" style="display: none;">
+            <div style="text-align: center; padding: 20px;">
+              <div style="font-size: 64px; margin-bottom: 20px;">⚙️</div>
+              <h3 style="margin-bottom: 15px; color: var(--primary);">First, Configure Your API Key</h3>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                ParaFile uses OpenAI's GPT-4 to understand your documents. You'll need an API key from OpenAI to get started.
+                Don't worry - your documents and API key stay on your device.
+              </p>
+              <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+                Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--primary);">OpenAI Platform</a>
+              </p>
+              <div style="display: flex; justify-content: center; gap: 15px; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" id="backStep2Btn">Back</button>
+                <button type="button" class="btn btn-primary" id="nextStep2Btn">Next</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="introStep3" class="intro-step" style="display: none;">
+            <div style="text-align: center; padding: 20px;">
+              <div style="font-size: 64px; margin-bottom: 20px;">📁</div>
+              <h3 style="margin-bottom: 15px; color: var(--primary);">Choose a Folder to Monitor</h3>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                Select a folder where ParaFile will watch for new documents. It will monitor all subdirectories automatically.
+                When you drop or save files there, ParaFile will organize them for you.
+              </p>
+              <div style="display: flex; justify-content: center; gap: 15px; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" id="backStep3Btn">Back</button>
+                <button type="button" class="btn btn-primary" id="nextStep3Btn">Next</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="introStep4" class="intro-step" style="display: none;">
+            <div style="text-align: center; padding: 20px;">
+              <div style="font-size: 64px; margin-bottom: 20px;">🏷️</div>
+              <h3 style="margin-bottom: 15px; color: var(--primary);">Create Categories & Variables</h3>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                Define categories (like "Invoices" or "Contracts") and variables (like "client_name" or "date") 
+                to customize how ParaFile organizes and renames your documents.
+              </p>
+              <div style="display: flex; justify-content: center; gap: 15px; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" id="backStep4Btn">Back</button>
+                <button type="button" class="btn btn-success" id="finishIntroBtn">Get Started!</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>ParaFile - Processing Log</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <!-- Animated gradient orbs -->
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <h1>Processing Log</h1>
+        <p>Document processing history and categorization corrections</p>
+      </div>
+
+      <!-- Main panel -->
+      <div class="main-panel">
+        <div class="control-section">
+          <div class="log-container" style="background: var(--background); border-radius: 15px; padding: 25px; border: 1px solid #e0e0e0;">
+            <div class="log-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div>
+                <h3 style="margin: 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif;">Processing History</h3>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Click on any row to correct categorization errors</p>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button id="refreshLogBtn" class="btn btn-secondary btn-small">
+                  <span>🔄</span> Refresh
+                </button>
+                <button id="clearLogBtn" class="btn btn-danger btn-small">
+                  <span>🗑️</span> Clear Log
+                </button>
+              </div>
+            </div>
+            
+            <div id="logTableContainer" style="overflow-x: auto;">
+              <table id="processingLogTable" class="log-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: var(--tertiary); border-bottom: 2px solid #ddd;">
+                    <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Original Name</th>
+                    <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">ParaFiled Name</th>
+                    <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Category</th>
+                    <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Reasoning</th>
+                    <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Date</th>
+                    <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="logTableBody">
+                  <tr>
+                    <td colspan="6" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
+                      <div class="spinner" style="margin: 0 auto 15px auto;"></div>
+                      Loading processing log...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log Correction Modal -->
+    <div id="logCorrectionModal" class="modal">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>Correct Categorization</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Original File Name</label>
+            <p id="correctionOriginalName" style="font-family: monospace; background: var(--tertiary); padding: 10px; border-radius: 8px; margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Current Category</label>
+            <p id="correctionCurrentCategory" style="margin-top: 5px; padding: 8px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffeaa7;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">AI Reasoning</label>
+            <div id="correctionReasoning" style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px; line-height: 1.6; font-style: italic;"></div>
+          </div>
+          
+          <div class="form-group">
+            <label for="correctionNewCategory" style="font-weight: bold; color: var(--primary);">Correct Category</label>
+            <select id="correctionNewCategory" class="form-input" style="margin-top: 5px;">
+              <option value="">Select the correct category...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="correctionFeedback" style="font-weight: bold; color: var(--primary);">Feedback (Optional)</label>
+            <textarea id="correctionFeedback" class="form-textarea" style="margin-top: 5px;" 
+                      placeholder="Why was this categorization incorrect? This helps improve future categorization..."></textarea>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveCorrectionBtn">
+            <span>💾</span> Save Correction
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Processing Notification -->
+    <div id="notification" class="notification">
+      <div id="notificationIcon" class="notification-icon success">
+        <span>✓</span>
+      </div>
+      <div class="notification-content">
+        <h4 id="notificationTitle">Success</h4>
+        <p id="notificationMessage">Operation completed successfully</p>
+      </div>
+    </div>
+
+    <script src="processing-log-renderer.js"></script>
+  </body>
+</html>

@@ -372,6 +372,73 @@ input:checked + .toggle-slider:before {
   font-family: 'Libre Baskerville', Georgia, serif;
 }
 
+/* Radio buttons */
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--dark);
+  font-family: 'Libre Baskerville', Georgia, serif;
+  user-select: none;
+}
+
+.radio-option input[type="radio"] {
+  display: none;
+}
+
+.radio-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--secondary);
+  border-radius: 50%;
+  position: relative;
+  transition: all 0.3s ease;
+  background: var(--tertiary);
+}
+
+.radio-option input[type="radio"]:checked + .radio-custom {
+  border-color: var(--primary);
+  background: var(--background);
+}
+
+.radio-option input[type="radio"]:checked + .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  transform: translate(-50%, -50%);
+}
+
+/* Log table styles */
+.log-table {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+}
+
+.log-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--tertiary);
+  z-index: 10;
+  font-family: 'Libre Baskerville', Georgia, serif;
+}
+
+.log-table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.log-table tbody tr:hover {
+  background-color: #f8f9fa !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
 /* Monitor controls */
 .monitor-controls {
   display: flex;

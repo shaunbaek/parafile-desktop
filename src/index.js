@@ -14,6 +14,7 @@ if (require('electron-squirrel-startup')) {
 }
 
 let mainWindow;
+let logWindow = null;
 let isMonitoring = false;
 let tray = null;
 let isQuitting = false;
@@ -61,6 +62,37 @@ const createWindow = () => {
 
   // Only open DevTools in development
   // mainWindow.webContents.openDevTools();
+};
+
+// Create processing log window
+const createLogWindow = () => {
+  // Don't create if already exists
+  if (logWindow && !logWindow.isDestroyed()) {
+    logWindow.focus();
+    return logWindow;
+  }
+
+  logWindow = new BrowserWindow({
+    width: 1400,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    },
+    icon: path.join(__dirname, 'assets/icon.png'),
+    titleBarStyle: 'hiddenInset',
+    backgroundColor: '#FBFDFB',
+    parent: mainWindow,
+    modal: false
+  });
+
+  logWindow.loadFile(path.join(__dirname, 'processing-log.html'));
+
+  logWindow.on('closed', () => {
+    logWindow = null;
+  });
+
+  return logWindow;
 };
 
 // Create system tray
@@ -398,7 +430,7 @@ function setupIPCHandlers() {
       }
       
       aiService.initialize(config.openai_api_key);
-      const result = await aiService.generateVariableSuggestion(prompt);
+      const result = await aiService.generateVariableSuggestion(prompt, config.expertise);
       
       return { success: true, suggestion: result };
     } catch (error) {
@@ -416,7 +448,7 @@ function setupIPCHandlers() {
       }
       
       aiService.initialize(config.openai_api_key);
-      const result = await aiService.evaluateVariableDescription(variableName, description);
+      const result = await aiService.evaluateVariableDescription(variableName, description, config.expertise);
       
       return { success: true, evaluation: result };
     } catch (error) {
@@ -434,13 +466,39 @@ function setupIPCHandlers() {
       }
       
       aiService.initialize(config.openai_api_key);
-      const shortDescription = await aiService.generateShortDescription(variableName, description);
+      const shortDescription = await aiService.generateShortDescription(variableName, description, config.expertise);
       
       return { success: true, shortDescription };
     } catch (error) {
       console.error('Error generating short description:', error);
       return { success: false, error: error.message };
     }
+  });
+
+  // Processing log management
+  ipcMain.handle('log:load', async () => {
+    return await configManager.loadLog();
+  });
+
+  ipcMain.handle('log:clear', async () => {
+    return await configManager.clearLog();
+  });
+
+  ipcMain.handle('log:addCorrection', async (event, logId, correction) => {
+    const result = await configManager.addLogCorrection(logId, correction);
+    
+    // Notify log window of update if it exists
+    if (logWindow && !logWindow.isDestroyed()) {
+      logWindow.webContents.send('log:updated');
+    }
+    
+    return result;
+  });
+
+  // Open processing log window
+  ipcMain.handle('window:openLog', async () => {
+    createLogWindow();
+    return true;
   });
 }
 
@@ -450,6 +508,24 @@ function setupFileMonitor() {
     try {
       const config = await configManager.load();
       const result = await documentProcessor.processDocument(fileInfo, config);
+      
+      // Log the processing result
+      try {
+        await configManager.addLogEntry({
+          originalName: result.fileName,
+          parafileName: result.newName,
+          category: result.category,
+          reasoning: result.reasoning,
+          success: result.success
+        });
+        
+        // Notify log window of update if it exists
+        if (logWindow && !logWindow.isDestroyed()) {
+          logWindow.webContents.send('log:updated');
+        }
+      } catch (logError) {
+        console.error('Error logging processing result:', logError);
+      }
       
       mainWindow.webContents.send('file:processed', result);
       
@@ -497,6 +573,36 @@ function setupFileMonitor() {
       mainWindow.webContents.send('monitor:status', false);
     }
     updateTrayMenu();
+  });
+
+  fileMonitor.on('file-moved-by-user', async (fileInfo) => {
+    console.log(`User moved file: ${fileInfo.fileName} to ${fileInfo.path}`);
+    
+    // Log this as a user action (no processing, just logging)
+    try {
+      await configManager.addLogEntry({
+        originalName: fileInfo.fileName,
+        parafileName: fileInfo.fileName, // Same name since user moved it
+        category: 'User Moved',
+        reasoning: `File was manually moved by user to: ${path.dirname(fileInfo.path)}`,
+        success: true
+      });
+      
+      // Notify log window of update if it exists
+      if (logWindow && !logWindow.isDestroyed()) {
+        logWindow.webContents.send('log:updated');
+      }
+    } catch (logError) {
+      console.error('Error logging user file move:', logError);
+    }
+    
+    // Notify main window
+    if (mainWindow) {
+      mainWindow.webContents.send('file:user-moved', {
+        fileName: fileInfo.fileName,
+        newPath: fileInfo.path
+      });
+    }
   });
 }
 

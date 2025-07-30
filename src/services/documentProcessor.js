@@ -37,7 +37,7 @@ class DocumentProcessor {
 
       // Categorize document with AI
       const categorization = await errorHandler.safeExecute(
-        () => aiService.categorizeDocument(extractedData.text, config.categories),
+        () => aiService.categorizeDocument(extractedData.text, config.categories, config.expertise),
         `AI categorization for ${result.fileName}`,
         { category: 'General', reasoning: 'Fallback due to AI error', confidence: 0 }
       );
