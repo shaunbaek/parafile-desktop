@@ -483,6 +483,12 @@ input:checked + .toggle-slider:before {
   background: var(--background);
 }
 
+.list-item:hover {
+  background: var(--tertiary);
+  transform: translateX(5px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .list-item:last-child {
   border-bottom: none;
 }

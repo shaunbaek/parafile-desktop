@@ -161,7 +161,7 @@ The description should be specific and clear for the AI to understand what to ex
 
 Respond with a JSON object containing:
 - name: The variable name (lowercase with underscores)
-- description: A clear description of what to extract`;
+- description: A clear, detailed description of what to extract`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -179,6 +179,101 @@ Respond with a JSON object containing:
       return result;
     } catch (error) {
       console.error('Error generating variable suggestion:', error);
+      throw error;
+    }
+  }
+
+  async generateShortDescription(variableName, description) {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const systemPrompt = `You are an expert at creating concise summaries. Given a variable name and its detailed description, generate a brief 3-5 word phrase that captures what this variable represents.
+
+Examples:
+- Variable: invoice_date, Description: "The date when the invoice was issued..." → Short: "Invoice issue date"
+- Variable: client_name, Description: "The full legal name of the client company..." → Short: "Client company name"
+- Variable: total_amount, Description: "The total payment amount including taxes..." → Short: "Total payment amount"
+- Variable: case_number, Description: "The court case number found in the header..." → Short: "Court case number"
+
+Respond with a JSON object containing:
+- shortDescription: A brief 3-5 word phrase (no periods, capitalize first word only)`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Variable name: ${variableName}\nDescription: ${description}` }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 50
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      return result.shortDescription;
+    } catch (error) {
+      console.error('Error generating short description:', error);
+      // Fallback to a simple extraction from the variable name
+      return variableName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+  }
+
+  async evaluateVariableDescription(variableName, description) {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const systemPrompt = `You are an expert at evaluating variable descriptions for a document processing AI system, with specialized knowledge of legal documents.
+Your task is to evaluate if the given description provides enough specific information for an AI to reliably extract the correct data from documents.
+
+Variable name: ${variableName}
+Current description: ${description}
+
+Evaluate the description and respond with a JSON object containing:
+- isAdequate: boolean (true if the description is specific enough, false if it needs improvement)
+- issues: array of strings describing any problems (empty if adequate)
+- suggestedDescription: improved description (only if isAdequate is false, otherwise null)
+- reasoning: brief explanation of your evaluation
+
+Good descriptions should:
+- Be specific about what to look for
+- Include format expectations if relevant (e.g., date format, number format)
+- Mention context clues or document sections where the information is typically found
+- Avoid ambiguity about what constitutes the correct value
+
+For LEGAL DOCUMENTS specifically, ensure descriptions address:
+- Common legal terminology variations (e.g., "Effective Date" vs "Commencement Date" vs "As of")
+- Document structure patterns (e.g., "typically found in the preamble" or "usually in section headers")
+- Party identification (e.g., "first party/second party", "plaintiff/defendant", "lessor/lessee")
+- Legal formatting conventions (e.g., "amounts often written in both numbers and words")
+- Signature blocks and execution details (e.g., "found near signature lines", "in the attestation clause")
+- Common legal document types and their unique patterns:
+  * Contracts: parties section, recitals, terms, signature blocks
+  * Leases: premises description, term, rent amount
+  * Court documents: case numbers, filing dates, docket numbers
+  * Corporate documents: entity names, registration numbers, authorized signatories
+- Jurisdictional variations (e.g., "state-specific format", "follows federal guidelines")
+- Legal date formats (e.g., "the ___ day of ___, 20__")
+- Reference handling (e.g., "may reference exhibits", "defined terms in quotes or capitals")`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Evaluate this variable description:\nVariable: ${variableName}\nDescription: ${description}` }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 400
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      return result;
+    } catch (error) {
+      console.error('Error evaluating variable description:', error);
       throw error;
     }
   }

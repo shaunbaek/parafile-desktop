@@ -262,23 +262,11 @@
           <div class="form-group">
             <div class="toggle-container">
               <label class="toggle-switch">
-                <input type="checkbox" id="startAtLogin">
+                <input type="checkbox" id="minimizeToTray">
                 <span class="toggle-slider"></span>
               </label>
-              <label for="startAtLogin" class="toggle-label">
-                Start ParaFile when you log in
-              </label>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <div class="toggle-container">
-              <label class="toggle-switch">
-                <input type="checkbox" id="startMinimized">
-                <span class="toggle-slider"></span>
-              </label>
-              <label for="startMinimized" class="toggle-label">
-                Start minimized to system tray
+              <label for="minimizeToTray" class="toggle-label">
+                Keep running in background when window is closed
               </label>
             </div>
           </div>
@@ -327,6 +315,84 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Description Suggestion Modal -->
+    <div id="descriptionSuggestionModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Description Improvement Suggestion</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <p style="margin-bottom: 15px;">The current description might need more specific details to ensure accurate extraction. Here's our analysis:</p>
+            
+            <div id="evaluationIssues" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+              <h4 style="margin-bottom: 10px; color: #856404;">Issues Found:</h4>
+              <ul id="issuesList" style="margin: 0; padding-left: 20px;"></ul>
+            </div>
+            
+            <div style="background: var(--tertiary); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+              <h4 style="margin-bottom: 10px; color: var(--primary);">Current Description:</h4>
+              <p id="currentDescriptionText" style="margin-bottom: 0; font-style: italic;"></p>
+            </div>
+            
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 10px;">
+              <h4 style="margin-bottom: 10px; color: #155724;">Suggested Description:</h4>
+              <textarea id="suggestedDescriptionText" class="form-textarea" style="min-height: 100px; background: white;"></textarea>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="keepOriginalBtn">
+              Keep Original
+            </button>
+            <button type="button" class="btn btn-primary" id="saveEditedBtn">
+              Save Edited
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variable Details Modal -->
+    <div id="variableDetailsModal" class="modal">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>Variable Details</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Variable Name</label>
+            <p id="detailsVariableName" style="font-family: monospace; background: var(--tertiary); padding: 10px; border-radius: 8px; margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Short Description</label>
+            <p id="detailsShortDescription" style="margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Full Description</label>
+            <div id="detailsFullDescription" style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px; line-height: 1.6;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal">
+      <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <div style="padding: 40px;">
+          <div class="spinner" style="margin: 0 auto 20px auto;"></div>
+          <h3 id="loadingTitle" style="margin-bottom: 10px; color: var(--primary);">Evaluating Description</h3>
+          <p id="loadingMessage" style="color: #232323; opacity: 0.8;">Analyzing your variable description for clarity and completeness...</p>
+        </div>
       </div>
     </div>
 

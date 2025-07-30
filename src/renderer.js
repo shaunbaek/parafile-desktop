@@ -390,17 +390,17 @@ function renderVariables() {
   }
   
   container.innerHTML = currentConfig.variables.map((variable, index) => `
-    <div class="list-item">
+    <div class="list-item" style="cursor: pointer;" onclick="showVariableDetails(${index})">
       <div class="list-item-info">
         <h4>{${variable.name}}</h4>
-        <p>${variable.description}</p>
+        <p style="color: var(--primary); font-weight: 500;">${variable.shortDescription || variable.description.substring(0, 50) + '...'}</p>
       </div>
-      <div class="list-item-actions">
+      <div class="list-item-actions" onclick="event.stopPropagation()">
         ${variable.name !== 'original_name' ? `
-          <button class="btn btn-secondary btn-small" onclick="editVariable(${index})">
+          <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); editVariable(${index})">
             <span>✏️</span> Edit
           </button>
-          <button class="btn btn-danger btn-small" onclick="deleteVariable(${index})">
+          <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteVariable(${index})">
             <span>🗑️</span> Delete
           </button>
         ` : '<span style="color: #232323; opacity: 0.5; font-size: 13px;">Protected variable</span>'}
@@ -461,13 +461,9 @@ async function showSettingsModal() {
     form.reset();
   }
   
-  // Load auto-launch setting
-  const autoLaunchEnabled = await ipcRenderer.invoke('auto-launch:isEnabled');
-  document.getElementById('startAtLogin').checked = autoLaunchEnabled;
-  
-  // Load start minimized setting
-  const startMinimized = localStorage.getItem('startMinimized') === 'true';
-  document.getElementById('startMinimized').checked = startMinimized;
+  // Load minimize to tray setting
+  const minimizeToTray = localStorage.getItem('minimizeToTray') === 'true';
+  document.getElementById('minimizeToTray').checked = minimizeToTray;
   
   // Clear status
   document.getElementById('apiKeyStatus').textContent = '';
@@ -506,10 +502,10 @@ function setupModalControls() {
     });
   });
   
-  // Close modal on outside click
+  // Close modal on outside click (except loading modal)
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
+      if (e.target === modal && modal.id !== 'loadingModal') {
         modal.classList.remove('active');
       }
     });
@@ -545,16 +541,29 @@ function setupModalControls() {
       description: document.getElementById('variableDescription').value
     };
     
-    if (editingVariableIndex >= 0) {
-      currentConfig = await ipcRenderer.invoke('config:updateVariable', editingVariableIndex, variable);
-    } else {
-      currentConfig = await ipcRenderer.invoke('config:addVariable', variable);
-    }
+    // Show loading modal
+    showLoadingModal('Evaluating Description', 'Analyzing your variable description for clarity and completeness...');
     
-    document.getElementById('variableModal').classList.remove('active');
-    renderVariables();
-    updateAvailableVariables();
-    showNotification('Success', `Variable "{${variable.name}}" saved`, 'success');
+    try {
+      // Evaluate the description before saving
+      const evaluationResult = await ipcRenderer.invoke('api:evaluateDescription', variable.name, variable.description);
+      
+      // Hide loading modal
+      hideLoadingModal();
+      
+      if (evaluationResult.success && !evaluationResult.evaluation.isAdequate) {
+        // Show suggestion modal
+        showDescriptionSuggestion(variable, evaluationResult.evaluation);
+      } else {
+        // Description is adequate or evaluation failed, proceed with saving
+        await saveVariable(variable);
+      }
+    } catch (error) {
+      hideLoadingModal();
+      showNotification('Error', 'Failed to evaluate description', 'error');
+      // Proceed with saving anyway
+      await saveVariable(variable);
+    }
   });
 
   // AI Suggestion form handlers
@@ -612,14 +621,43 @@ function setupModalControls() {
     // Keep variable modal open so user can review/edit before saving
     showNotification('Success', 'Suggestion applied. Review and save the variable.', 'success');
   });
+
+  // Description suggestion modal handlers
+  document.getElementById('keepOriginalBtn').addEventListener('click', async () => {
+    const modal = document.getElementById('descriptionSuggestionModal');
+    const variableName = modal.dataset.variableName;
+    const originalDescription = modal.dataset.originalDescription;
+    
+    // Close suggestion modal
+    modal.classList.remove('active');
+    
+    // Save with original description
+    await saveVariable({ name: variableName, description: originalDescription });
+  });
+
+  document.getElementById('saveEditedBtn').addEventListener('click', async () => {
+    const modal = document.getElementById('descriptionSuggestionModal');
+    const variableName = modal.dataset.variableName;
+    const editedDescription = document.getElementById('suggestedDescriptionText').value;
+    
+    if (!editedDescription.trim()) {
+      showNotification('Error', 'Description cannot be empty', 'error');
+      return;
+    }
+    
+    // Close suggestion modal
+    modal.classList.remove('active');
+    
+    // Save with edited description
+    await saveVariable({ name: variableName, description: editedDescription });
+  });
   
   // Settings form submission
   document.getElementById('settingsForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const apiKey = document.getElementById('openaiApiKey').value.trim();
-    const startAtLogin = document.getElementById('startAtLogin').checked;
-    const startMinimized = document.getElementById('startMinimized').checked;
+    const minimizeToTray = document.getElementById('minimizeToTray').checked;
     
     // Save API key
     await ipcRenderer.invoke('config:updateSettings', {
@@ -628,14 +666,8 @@ function setupModalControls() {
     
     currentConfig.openai_api_key = apiKey;
     
-    // Handle auto-launch setting
-    const currentAutoLaunch = await ipcRenderer.invoke('auto-launch:isEnabled');
-    if (startAtLogin !== currentAutoLaunch) {
-      await ipcRenderer.invoke('auto-launch:toggle');
-    }
-    
-    // Save start minimized setting
-    localStorage.setItem('startMinimized', startMinimized);
+    // Save minimize to tray setting
+    localStorage.setItem('minimizeToTray', minimizeToTray);
     
     document.getElementById('settingsModal').classList.remove('active');
     showNotification('Success', 'Settings saved successfully', 'success');
@@ -681,6 +713,86 @@ function setupModalControls() {
     }
   });
 }
+
+// Save variable helper function
+async function saveVariable(variable) {
+  // Show loading modal for short description generation
+  showLoadingModal('Saving Variable', 'Generating short description...');
+  
+  try {
+    // Generate short description
+    const shortDescResult = await ipcRenderer.invoke('api:generateShortDescription', variable.name, variable.description);
+    
+    if (shortDescResult.success) {
+      variable.shortDescription = shortDescResult.shortDescription;
+    }
+    
+    // Save the variable
+    if (editingVariableIndex >= 0) {
+      currentConfig = await ipcRenderer.invoke('config:updateVariable', editingVariableIndex, variable);
+    } else {
+      currentConfig = await ipcRenderer.invoke('config:addVariable', variable);
+    }
+    
+    hideLoadingModal();
+    document.getElementById('variableModal').classList.remove('active');
+    renderVariables();
+    updateAvailableVariables();
+    showNotification('Success', `Variable "{${variable.name}}" saved`, 'success');
+  } catch (error) {
+    hideLoadingModal();
+    showNotification('Error', 'Failed to save variable', 'error');
+  }
+}
+
+// Show description suggestion modal
+function showDescriptionSuggestion(variable, evaluation) {
+  const modal = document.getElementById('descriptionSuggestionModal');
+  
+  // Populate the modal with evaluation data
+  document.getElementById('currentDescriptionText').textContent = variable.description;
+  document.getElementById('suggestedDescriptionText').value = evaluation.suggestedDescription;
+  
+  // Populate issues list
+  const issuesList = document.getElementById('issuesList');
+  issuesList.innerHTML = evaluation.issues.map(issue => `<li>${issue}</li>`).join('');
+  
+  // Store the variable data for later use
+  modal.dataset.variableName = variable.name;
+  modal.dataset.originalDescription = variable.description;
+  
+  modal.classList.add('active');
+}
+
+// Show loading modal
+function showLoadingModal(title = 'Loading', message = 'Please wait...') {
+  const modal = document.getElementById('loadingModal');
+  document.getElementById('loadingTitle').textContent = title;
+  document.getElementById('loadingMessage').textContent = message;
+  modal.classList.add('active');
+}
+
+// Hide loading modal
+function hideLoadingModal() {
+  const modal = document.getElementById('loadingModal');
+  modal.classList.remove('active');
+}
+
+// Show variable details modal
+function showVariableDetails(index) {
+  const variable = currentConfig.variables[index];
+  if (!variable) return;
+  
+  const modal = document.getElementById('variableDetailsModal');
+  document.getElementById('detailsVariableName').textContent = `{${variable.name}}`;
+  document.getElementById('detailsShortDescription').textContent = variable.shortDescription || 'No short description available';
+  document.getElementById('detailsFullDescription').textContent = variable.description;
+  
+  modal.classList.add('active');
+}
+
+// Make showVariableDetails global for onclick
+window.showVariableDetails = showVariableDetails;
 
 // Show notification
 function showNotification(title, message, type = 'success') {

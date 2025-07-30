@@ -6,7 +6,6 @@ require('dotenv').config();
 const configManager = require('./config/configManager');
 const fileMonitor = require('./services/fileMonitor');
 const documentProcessor = require('./services/documentProcessor');
-const autoLauncher = require('./utils/autoLauncher');
 const aiService = require('./services/aiService');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -43,11 +42,20 @@ const createWindow = () => {
     mainWindow.show();
   });
 
-  // Handle window close to minimize to tray instead
-  mainWindow.on('close', (event) => {
+  // Handle window close based on user preference
+  mainWindow.on('close', async (event) => {
     if (!isQuitting) {
       event.preventDefault();
-      mainWindow.hide();
+      
+      // Ask renderer for the minimize to tray preference
+      const shouldMinimize = await mainWindow.webContents.executeJavaScript('localStorage.getItem("minimizeToTray") === "true"');
+      
+      if (shouldMinimize) {
+        mainWindow.hide();
+      } else {
+        isQuitting = true;
+        app.quit();
+      }
     }
   });
 
@@ -353,14 +361,6 @@ function setupIPCHandlers() {
     });
   });
 
-  // Auto-launch
-  ipcMain.handle('auto-launch:isEnabled', async () => {
-    return await autoLauncher.isEnabled();
-  });
-
-  ipcMain.handle('auto-launch:toggle', async () => {
-    return await autoLauncher.toggle();
-  });
 
   // API testing
   ipcMain.handle('api:testKey', async (event, apiKey) => {
@@ -403,6 +403,42 @@ function setupIPCHandlers() {
       return { success: true, suggestion: result };
     } catch (error) {
       console.error('Error generating variable suggestion:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // AI description evaluation
+  ipcMain.handle('api:evaluateDescription', async (event, variableName, description) => {
+    try {
+      const config = await configManager.load();
+      if (!config.openai_api_key) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      aiService.initialize(config.openai_api_key);
+      const result = await aiService.evaluateVariableDescription(variableName, description);
+      
+      return { success: true, evaluation: result };
+    } catch (error) {
+      console.error('Error evaluating description:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // AI short description generation
+  ipcMain.handle('api:generateShortDescription', async (event, variableName, description) => {
+    try {
+      const config = await configManager.load();
+      if (!config.openai_api_key) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      aiService.initialize(config.openai_api_key);
+      const shortDescription = await aiService.generateShortDescription(variableName, description);
+      
+      return { success: true, shortDescription };
+    } catch (error) {
+      console.error('Error generating short description:', error);
       return { success: false, error: error.message };
     }
   });
