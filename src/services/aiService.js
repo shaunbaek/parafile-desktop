@@ -145,6 +145,43 @@ Respond with a JSON object containing:
       .replace(/\s+/g, ' ')
       .trim();
   }
+
+  async generateVariableSuggestion(userPrompt) {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const systemPrompt = `You are a helpful assistant that generates variable names and descriptions for a document processing system. 
+Based on the user's description of what information they want to extract from documents, generate:
+1. A concise, descriptive variable name (lowercase, using underscores for spaces)
+2. A clear description that explains what the AI should extract from documents
+
+The variable name should be machine-friendly (e.g., invoice_date, client_name, total_amount).
+The description should be specific and clear for the AI to understand what to extract.
+
+Respond with a JSON object containing:
+- name: The variable name (lowercase with underscores)
+- description: A clear description of what to extract`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 200
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      return result;
+    } catch (error) {
+      console.error('Error generating variable suggestion:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new AIService();

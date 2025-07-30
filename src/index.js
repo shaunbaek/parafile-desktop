@@ -7,6 +7,7 @@ const configManager = require('./config/configManager');
 const fileMonitor = require('./services/fileMonitor');
 const documentProcessor = require('./services/documentProcessor');
 const autoLauncher = require('./utils/autoLauncher');
+const aiService = require('./services/aiService');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -385,6 +386,24 @@ function setupIPCHandlers() {
       }
       
       return { success: false, error: errorMessage };
+    }
+  });
+
+  // AI variable generation
+  ipcMain.handle('api:generateVariable', async (event, prompt) => {
+    try {
+      const config = await configManager.load();
+      if (!config.openai_api_key) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      aiService.initialize(config.openai_api_key);
+      const result = await aiService.generateVariableSuggestion(prompt);
+      
+      return { success: true, suggestion: result };
+    } catch (error) {
+      console.error('Error generating variable suggestion:', error);
+      return { success: false, error: error.message };
     }
   });
 }

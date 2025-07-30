@@ -2,6 +2,55 @@
 
 All notable changes to ParaFile Desktop will be documented in this file.
 
+## [Unreleased] - 2025-07-30
+
+### Added
+- **AI-Powered Variable Generation**: Users can now generate variable names and descriptions using AI
+  - Added "AI Suggest" button in the Add Variable modal
+  - New AI Variable Suggestion modal for natural language input
+  - Integration with OpenAI API to generate appropriate variable names and descriptions
+  - One-click application of AI suggestions to the variable form
+
+### Fixed
+- **Onboarding Screen Issue**: Fixed welcome screen repeatedly showing after API key configuration
+  - Welcome screen now only shows when API key is missing (not when folder is missing)
+  - Onboarding completes automatically once API key is configured
+  - Proper persistence of onboarding completion state
+
+### Technical Changes
+
+#### Frontend (UI)
+- **src/index.html**:
+  - Added AI Suggest button to Variable modal (line 210)
+  - Created new AI Variable Suggestion modal (lines 296-331)
+  - Button positioned absolutely within variable name input field
+
+#### Frontend (Logic)
+- **src/renderer.js**:
+  - Added AI Suggest button click handler (lines 174-180)
+  - Implemented AI suggestion form submission (lines 561-597)
+  - Added "Use This Suggestion" functionality (lines 600-614)
+  - Fixed onboarding logic to check only API key presence (lines 23-27)
+  - Updated onboarding completion to trigger on API key configuration (lines 95-101)
+
+#### Backend
+- **src/services/aiService.js**:
+  - Added `generateVariableSuggestion()` method (lines 149-184)
+  - Uses GPT-4 Turbo to generate variable names and descriptions
+  - Returns JSON with machine-friendly variable name and clear description
+
+- **src/index.js**:
+  - Imported aiService module (line 10)
+  - Added IPC handler `api:generateVariable` (lines 391-407)
+  - Validates API key before making AI requests
+
+### User Experience Improvements
+1. Simplified variable creation process with AI assistance
+2. Natural language input for describing desired variables
+3. Automatic generation of proper variable names (lowercase with underscores)
+4. Clear, AI-generated descriptions for consistent extraction
+5. Seamless integration with existing variable management workflow
+
 ## [1.0.0] - 2025-07-29
 
 ### Added
@@ -27,6 +76,8 @@ All notable changes to ParaFile Desktop will be documented in this file.
 - **Enhanced Error Handling**: Specific error messages for API issues
 - **One-time Welcome Screen**: Shows only on first launch, then never again
 - **Pre-monitoring Validation**: Prevents starting without valid API key
+- **Recursive Directory Monitoring**: Monitors ALL subdirectories with unlimited depth
+- **Consolidated Settings**: Auto-launch and system preferences moved to Settings panel
 
 ### UI/UX Improvements
 - **Modern Glassmorphism Design**: Translucent panels with backdrop blur
@@ -42,6 +93,7 @@ All notable changes to ParaFile Desktop will be documented in this file.
 - **AI Categorization**: Uses OpenAI GPT-4 for intelligent document categorization
 - **Variable Extraction**: Extracts custom variables from documents for renaming
 - **File Organization**: Organizes files into category subfolders
+- **Recursive Monitoring**: Watches entire directory trees with unlimited depth
 - **Background Monitoring**: Runs in system tray like Slack/Teams
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 - **Robust Error Handling**: Handles file locks, API failures, and corrupted files
@@ -57,13 +109,15 @@ All notable changes to ParaFile Desktop will be documented in this file.
 
 ### Technical Implementation
 - Built with Electron 37.2.4 and Node.js
-- Uses Chokidar for reliable file system monitoring
+- Uses Chokidar for reliable recursive file system monitoring
+- Unlimited depth directory watching with `**/*` glob patterns
 - PDF text extraction with pdf-parse
 - Word document processing with mammoth
 - OpenAI API integration with structured JSON responses
 - Configuration stored in user data directory
 - Persistent settings and preferences
 - IPC communication for secure main/renderer separation
+- Enhanced ignore patterns for better performance (.git, .DS_Store, etc.)
 
 ### Dependencies
 - electron: 37.2.4
@@ -79,3 +133,5 @@ All notable changes to ParaFile Desktop will be documented in this file.
 - **No .env file required**: All configuration moved to built-in settings
 - **Automatic config migration**: Existing installations will migrate smoothly
 - **Enhanced onboarding**: New users get guided setup experience
+- **Recursive monitoring**: Now monitors all subdirectories automatically (no configuration needed)
+- **Settings consolidation**: Auto-launch and system preferences moved to Settings panel

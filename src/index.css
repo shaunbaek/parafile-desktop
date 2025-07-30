@@ -783,6 +783,22 @@ input:checked + .toggle-slider:before {
   opacity: 0.7;
 }
 
+/* Folder help text */
+.folder-help-text {
+  font-size: 13px;
+  color: #232323;
+  opacity: 0.8;
+  margin-top: 8px;
+  margin-bottom: 0;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.folder-help-text strong {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 /* Form hints and status */
 .form-hint {
   font-size: 13px;

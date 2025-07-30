@@ -48,7 +48,7 @@
                 <div class="step-number">2</div>
                 <div class="step-content">
                   <h4>Select Folder to Monitor</h4>
-                  <p>Choose a folder where your documents will be organized</p>
+                  <p>Choose a folder where your documents will be organized (includes all subdirectories)</p>
                   <button id="selectFolderBtn" class="btn btn-secondary btn-small" disabled>
                     <span>📁</span> Select Folder
                   </button>
@@ -67,11 +67,14 @@
         <div id="mainContent" class="control-section">
           <h3 class="section-title">Document Folder</h3>
           <div class="folder-selector">
-            <input type="text" id="folderPath" class="folder-input" placeholder="Select a folder to monitor..." readonly>
+            <input type="text" id="folderPath" class="folder-input" placeholder="Select a folder to monitor (includes all subdirectories)..." readonly>
             <button id="browseBtn" class="btn btn-primary">
               <span>📂</span> Browse
             </button>
           </div>
+          <p class="folder-help-text">
+            ParaFile will monitor this folder and <strong>all subdirectories</strong> for PDF and Word documents.
+          </p>
           
           <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Settings</h4>
           
@@ -85,25 +88,6 @@
             </label>
           </div>
 
-          <div class="toggle-container">
-            <label class="toggle-switch">
-              <input type="checkbox" id="startAtLogin">
-              <span class="toggle-slider"></span>
-            </label>
-            <label for="startAtLogin" class="toggle-label">
-              Start ParaFile when you log in
-            </label>
-          </div>
-
-          <div class="toggle-container">
-            <label class="toggle-switch">
-              <input type="checkbox" id="startMinimized">
-              <span class="toggle-slider"></span>
-            </label>
-            <label for="startMinimized" class="toggle-label">
-              Start minimized to system tray
-            </label>
-          </div>
 
           <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Monitoring</h4>
           
@@ -218,9 +202,15 @@
         <form id="variableForm">
           <div class="form-group">
             <label for="variableName">Variable Name</label>
-            <input type="text" id="variableName" class="form-input" required 
-                   pattern="[a-z_]+" title="Use lowercase letters and underscores only"
-                   placeholder="e.g., date, client_name, invoice_number">
+            <div style="position: relative;">
+              <input type="text" id="variableName" class="form-input" required 
+                     pattern="[a-z_]+" title="Use lowercase letters and underscores only"
+                     placeholder="e.g., date, client_name, invoice_number"
+                     style="padding-right: 140px;">
+              <button type="button" id="aiSuggestBtn" class="btn btn-secondary" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 8px 16px; font-size: 14px;">
+                <span>🤖</span> AI Suggest
+              </button>
+            </div>
           </div>
           
           <div class="form-group">
@@ -266,11 +256,74 @@
             </button>
             <span id="apiKeyStatus" class="api-key-status"></span>
           </div>
+
+          <h3 style="margin: 30px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 18px;">System Integration</h3>
+          
+          <div class="form-group">
+            <div class="toggle-container">
+              <label class="toggle-switch">
+                <input type="checkbox" id="startAtLogin">
+                <span class="toggle-slider"></span>
+              </label>
+              <label for="startAtLogin" class="toggle-label">
+                Start ParaFile when you log in
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-container">
+              <label class="toggle-switch">
+                <input type="checkbox" id="startMinimized">
+                <span class="toggle-slider"></span>
+              </label>
+              <label for="startMinimized" class="toggle-label">
+                Start minimized to system tray
+              </label>
+            </div>
+          </div>
           
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary">
               <span>💾</span> Save Settings
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- AI Variable Suggestion Modal -->
+    <div id="aiSuggestionModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>AI Variable Suggestion</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <form id="aiSuggestionForm">
+          <div class="form-group">
+            <label for="aiPrompt">What kind of variable do you want to extract?</label>
+            <textarea id="aiPrompt" class="form-textarea" required 
+                      placeholder="Describe what information you want to extract from documents. For example:&#10;&#10;• The invoice date from invoices&#10;• Client name from contracts&#10;• Total amount from receipts&#10;• Project code from project documents&#10;&#10;Be as specific as possible!"
+                      style="min-height: 180px;"></textarea>
+          </div>
+          
+          <div class="form-group" id="aiSuggestionResult" style="display: none;">
+            <h4 style="margin-bottom: 10px; color: var(--primary);">AI Suggestion:</h4>
+            <div style="background: var(--tertiary); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+              <p style="margin-bottom: 8px;"><strong>Variable Name:</strong> <span id="suggestedName" style="font-family: monospace; background: var(--background); padding: 2px 8px; border-radius: 4px;"></span></p>
+              <p style="margin-bottom: 0;"><strong>Description:</strong> <span id="suggestedDescription"></span></p>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="generateSuggestionBtn">
+              <span>🤖</span> Generate Suggestion
+            </button>
+            <button type="button" class="btn btn-success" id="useSuggestionBtn" style="display: none;">
+              <span>✓</span> Use This Suggestion
             </button>
           </div>
         </form>

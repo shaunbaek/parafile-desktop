@@ -9,7 +9,7 @@ An AI-powered document organization and renaming application that automatically 
 - **Background Operation**: Runs in system tray like Slack/Teams with global shortcuts
 - **Guided Setup**: Step-by-step onboarding that ensures proper configuration
 - **Built-in Settings**: Configure OpenAI API key and test connection directly in the app
-- **Smart File Monitoring**: Watches folders for new PDF and Word documents with retry logic
+- **Recursive File Monitoring**: Watches folders and ALL subdirectories for PDF and Word documents
 - **Custom Categories & Variables**: Define your own organization rules and naming patterns
 - **Drag & Drop Processing**: Instant document processing with visual feedback
 - **Auto-Launch Support**: Start with your system and run in background
@@ -34,7 +34,7 @@ npm start
 
 **Guided Setup Process:**
 1. **Configure OpenAI API Key** - Set up your API key with built-in connection testing
-2. **Select Monitor Folder** - Choose where your documents will be organized
+2. **Select Monitor Folder** - Choose a folder to monitor (includes ALL subdirectories automatically)
 3. **Customize Categories** (Optional) - Add categories with descriptions for AI understanding
 4. **Define Variables** (Optional) - Create variables for custom filename patterns
 
@@ -75,11 +75,18 @@ npm run monitor
 
 ## How It Works
 
-1. **File Detection**: Monitors your selected folder for new PDF and Word documents
-2. **Text Extraction**: Extracts text content from documents
+1. **Recursive File Detection**: Monitors your selected folder and ALL subdirectories for new PDF and Word documents
+2. **Text Extraction**: Extracts text content from documents at any depth level
 3. **AI Analysis**: Sends text to OpenAI GPT-4 for categorization and variable extraction
 4. **File Organization**: Renames and optionally moves files to category subfolders
 5. **Error Recovery**: Handles failures gracefully with retry logic and fallbacks
+
+### Monitoring Scope
+When you select a folder like `/Documents/MyWork/`, ParaFile automatically monitors:
+- **Root level**: `/Documents/MyWork/report.pdf`
+- **Subdirectories**: `/Documents/MyWork/2024/invoice.pdf`
+- **Deep nesting**: `/Documents/MyWork/Projects/ClientA/Contracts/agreement.pdf`
+- **Any depth**: No limit on folder hierarchy levels
 
 ## Requirements
 
@@ -115,6 +122,7 @@ Settings are stored in your user data directory:
    - Ensure files are PDF or Word documents (.pdf, .docx, .doc)
    - Verify the monitoring service is running (green status dot)
    - Check if API key validation is passing
+   - Remember: ParaFile monitors ALL subdirectories, so files in nested folders should be detected
 
 3. **Tray icon not working**
    - Try the global shortcut: `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)

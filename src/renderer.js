@@ -20,7 +20,11 @@ function checkOnboarding() {
   const mainContent = document.getElementById('mainContent');
   const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
   
-  if ((!apiKey || !folderPath) && !hasSeenWelcome) {
+  // Show welcome only if API key is missing (folder can be selected later)
+  // If API key is configured, skip welcome
+  const hasApiKey = apiKey && apiKey.trim() !== '';
+  
+  if (!hasApiKey && !hasSeenWelcome) {
     welcomeSection.style.display = 'block';
     mainContent.style.display = 'none';
     
@@ -32,6 +36,7 @@ function checkOnboarding() {
     // Update onboarding steps
     updateOnboardingSteps();
   } else {
+    // If user has previous configuration OR has seen welcome, skip to main app
     welcomeSection.style.display = 'none';
     mainContent.style.display = 'block';
     
@@ -46,6 +51,8 @@ function checkOnboarding() {
 function updateOnboardingSteps() {
   const apiKey = currentConfig ? currentConfig.openai_api_key : '';
   const folderPath = currentConfig ? currentConfig.watched_folder : '';
+  
+  console.log('updateOnboardingSteps called:', { apiKey: !!apiKey, folderPath: !!folderPath });
   
   const step1 = document.getElementById('step1');
   const step1Status = document.getElementById('step1Status');
@@ -79,28 +86,42 @@ function updateOnboardingSteps() {
     step2.classList.add('completed');
     step2Status.textContent = '✓ Selected';
     step2Status.className = 'step-status success';
-    
-    // Complete onboarding if both steps are done
-    if (apiKey) {
-      setTimeout(() => {
-        completeOnboarding();
-      }, 1000);
-    }
   } else {
     step2.classList.remove('completed');
     step2Status.textContent = '';
     step2Status.className = 'step-status';
   }
+  
+  // Complete onboarding if API key is configured (folder is optional for initial setup)
+  if (apiKey) {
+    console.log('API key configured, completing onboarding...');
+    setTimeout(() => {
+      completeOnboarding();
+    }, 1000);
+  }
 }
 
 // Complete onboarding
 function completeOnboarding() {
+  console.log('completeOnboarding() called');
   localStorage.setItem('hasSeenWelcome', 'true');
-  document.getElementById('welcomeSection').style.display = 'none';
-  document.getElementById('mainContent').style.display = 'block';
+  
+  const welcomeSection = document.getElementById('welcomeSection');
+  const mainContent = document.getElementById('mainContent');
+  
+  console.log('Welcome section current display:', welcomeSection.style.display);
+  console.log('Main content current display:', mainContent.style.display);
+  
+  welcomeSection.style.display = 'none';
+  mainContent.style.display = 'block';
+  
+  console.log('After change - Welcome section display:', welcomeSection.style.display);
+  console.log('After change - Main content display:', mainContent.style.display);
+  
   document.querySelectorAll('.control-section').forEach(section => {
     section.style.display = 'block';
   });
+  
   showNotification('Setup Complete', 'ParaFile is ready to organize your documents!', 'success');
 }
 
@@ -139,15 +160,6 @@ function setupEventListeners() {
     currentConfig.enable_organization = e.target.checked;
   });
 
-  // Auto-launch toggle
-  document.getElementById('startAtLogin').addEventListener('change', async (e) => {
-    await ipcRenderer.invoke('auto-launch:toggle');
-  });
-
-  // Start minimized toggle (store in localStorage for now)
-  document.getElementById('startMinimized').addEventListener('change', async (e) => {
-    localStorage.setItem('startMinimized', e.target.checked);
-  });
   
   // Monitor controls
   document.getElementById('monitorBtn').addEventListener('click', toggleMonitoring);
@@ -157,6 +169,15 @@ function setupEventListeners() {
   
   // Variable management
   document.getElementById('addVariableBtn').addEventListener('click', () => showVariableModal());
+
+  // AI Variable Suggestion
+  document.getElementById('aiSuggestBtn').addEventListener('click', () => {
+    document.getElementById('aiSuggestionModal').classList.add('active');
+    document.getElementById('aiPrompt').value = '';
+    document.getElementById('aiSuggestionResult').style.display = 'none';
+    document.getElementById('generateSuggestionBtn').style.display = 'block';
+    document.getElementById('useSuggestionBtn').style.display = 'none';
+  });
   
   // Settings
   document.getElementById('settingsBtn').addEventListener('click', () => showSettingsModal());
@@ -206,7 +227,10 @@ async function selectFolder() {
     currentConfig.watched_folder = folderPath;
     
     // Update onboarding if we're in welcome mode
-    if (document.getElementById('welcomeSection').style.display !== 'none') {
+    const welcomeSection = document.getElementById('welcomeSection');
+    console.log('Folder selected, checking if in welcome mode. Welcome display:', welcomeSection.style.display);
+    if (welcomeSection.style.display !== 'none') {
+      console.log('In welcome mode, updating onboarding steps');
       updateOnboardingSteps();
     } else {
       // Mark that user has seen welcome screen and show all sections
@@ -308,14 +332,6 @@ async function updateUI() {
   // Update folder path
   document.getElementById('folderPath').value = currentConfig.watched_folder || '';
   document.getElementById('enableOrganization').checked = currentConfig.enable_organization;
-  
-  // Update auto-launch setting
-  const autoLaunchEnabled = await ipcRenderer.invoke('auto-launch:isEnabled');
-  document.getElementById('startAtLogin').checked = autoLaunchEnabled;
-  
-  // Update start minimized setting
-  const startMinimized = localStorage.getItem('startMinimized') === 'true';
-  document.getElementById('startMinimized').checked = startMinimized;
   
   // Update categories list
   renderCategories();
@@ -434,7 +450,7 @@ function showVariableModal(variable = null, index = -1) {
 }
 
 // Settings modal
-function showSettingsModal() {
+async function showSettingsModal() {
   const modal = document.getElementById('settingsModal');
   const form = document.getElementById('settingsForm');
   
@@ -444,6 +460,14 @@ function showSettingsModal() {
   } else {
     form.reset();
   }
+  
+  // Load auto-launch setting
+  const autoLaunchEnabled = await ipcRenderer.invoke('auto-launch:isEnabled');
+  document.getElementById('startAtLogin').checked = autoLaunchEnabled;
+  
+  // Load start minimized setting
+  const startMinimized = localStorage.getItem('startMinimized') === 'true';
+  document.getElementById('startMinimized').checked = startMinimized;
   
   // Clear status
   document.getElementById('apiKeyStatus').textContent = '';
@@ -532,18 +556,86 @@ function setupModalControls() {
     updateAvailableVariables();
     showNotification('Success', `Variable "{${variable.name}}" saved`, 'success');
   });
+
+  // AI Suggestion form handlers
+  document.getElementById('aiSuggestionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const prompt = document.getElementById('aiPrompt').value.trim();
+    if (!prompt) return;
+    
+    const generateBtn = document.getElementById('generateSuggestionBtn');
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<span>⏳</span> Generating...';
+    generateBtn.disabled = true;
+    
+    try {
+      const result = await ipcRenderer.invoke('api:generateVariable', prompt);
+      
+      if (result.success) {
+        // Display the suggestion
+        document.getElementById('suggestedName').textContent = result.suggestion.name;
+        document.getElementById('suggestedDescription').textContent = result.suggestion.description;
+        document.getElementById('aiSuggestionResult').style.display = 'block';
+        
+        // Store the suggestion for later use
+        document.getElementById('aiSuggestionModal').dataset.suggestedName = result.suggestion.name;
+        document.getElementById('aiSuggestionModal').dataset.suggestedDescription = result.suggestion.description;
+        
+        // Update buttons
+        generateBtn.style.display = 'none';
+        document.getElementById('useSuggestionBtn').style.display = 'block';
+      } else {
+        showNotification('Error', result.error || 'Failed to generate suggestion', 'error');
+      }
+    } catch (error) {
+      showNotification('Error', 'Failed to generate suggestion', 'error');
+    } finally {
+      generateBtn.innerHTML = originalText;
+      generateBtn.disabled = false;
+    }
+  });
+
+  // Use AI suggestion button
+  document.getElementById('useSuggestionBtn').addEventListener('click', () => {
+    const modal = document.getElementById('aiSuggestionModal');
+    const name = modal.dataset.suggestedName;
+    const description = modal.dataset.suggestedDescription;
+    
+    // Populate the variable form
+    document.getElementById('variableName').value = name;
+    document.getElementById('variableDescription').value = description;
+    
+    // Close AI suggestion modal
+    modal.classList.remove('active');
+    
+    // Keep variable modal open so user can review/edit before saving
+    showNotification('Success', 'Suggestion applied. Review and save the variable.', 'success');
+  });
   
   // Settings form submission
   document.getElementById('settingsForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const apiKey = document.getElementById('openaiApiKey').value.trim();
+    const startAtLogin = document.getElementById('startAtLogin').checked;
+    const startMinimized = document.getElementById('startMinimized').checked;
     
+    // Save API key
     await ipcRenderer.invoke('config:updateSettings', {
       openai_api_key: apiKey
     });
     
     currentConfig.openai_api_key = apiKey;
+    
+    // Handle auto-launch setting
+    const currentAutoLaunch = await ipcRenderer.invoke('auto-launch:isEnabled');
+    if (startAtLogin !== currentAutoLaunch) {
+      await ipcRenderer.invoke('auto-launch:toggle');
+    }
+    
+    // Save start minimized setting
+    localStorage.setItem('startMinimized', startMinimized);
     
     document.getElementById('settingsModal').classList.remove('active');
     showNotification('Success', 'Settings saved successfully', 'success');

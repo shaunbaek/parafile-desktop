@@ -21,13 +21,22 @@ class FileMonitor extends EventEmitter {
       return;
     }
 
-    this.watcher = chokidar.watch(folderPath, {
+    // Watch the folder and ALL subdirectories recursively
+    const watchPattern = [
+      folderPath,
+      path.join(folderPath, '**/*')  // Explicitly watch all subdirectories
+    ];
+    
+    this.watcher = chokidar.watch(watchPattern, {
       ignored: [
         /(^|[\/\\])\../,  // Ignore dotfiles
         /node_modules/,    // Ignore node_modules
         /\.app\//,         // Ignore app bundles on macOS
         /^\/dev\//,        // Ignore /dev directory
-        /^\/Volumes\/.*\/dev\// // Ignore /dev on mounted volumes
+        /^\/Volumes\/.*\/dev\//, // Ignore /dev on mounted volumes
+        /\.git\//,         // Ignore .git directories
+        /\.DS_Store$/,     // Ignore macOS metadata files
+        /Thumbs\.db$/      // Ignore Windows thumbnail cache
       ],
       persistent: true,
       ignoreInitial: true,
@@ -40,8 +49,9 @@ class FileMonitor extends EventEmitter {
       interval: 100,
       binaryInterval: 300,
       alwaysStat: false,
-      depth: 99,
-      ignorePermissionErrors: true
+      depth: undefined,  // No depth limit for unlimited recursion
+      ignorePermissionErrors: true,
+      atomic: true       // Handle atomic file operations better
     });
 
     this.watcher
@@ -56,7 +66,7 @@ class FileMonitor extends EventEmitter {
         this.emit('error', error);
       })
       .on('ready', () => {
-        console.log(`File monitor ready. Watching: ${folderPath}`);
+        console.log(`File monitor ready. Recursively watching: ${folderPath} (including all subdirectories)`);
         this.isRunning = true;
         this.emit('started');
       });
