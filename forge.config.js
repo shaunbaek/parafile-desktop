@@ -75,10 +75,7 @@ module.exports = {
       config: {
         format: 'ULFO',
         overwrite: true,
-        name: 'ParaFile Desktop',
-        additionalDMGOptions: {
-          quiet: true
-        }
+        name: 'ParaFile Desktop'
       }
     }
   ],
