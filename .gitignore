@@ -90,3 +90,29 @@ typings/
 
 # Electron-Forge
 out/
+
+# Build artifacts
+dist/
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.AppImage
+*.snap
+
+# Platform-specific
+.DS_Store
+Thumbs.db
+
+# Certificates and secrets
+*.p12
+*.pfx
+*.cer
+*.key
+.env.build
+
+# Generated icons
+src/assets/icons/
+src/assets/*.ico
+src/assets/*.icns
+src/assets/dmg-background.png

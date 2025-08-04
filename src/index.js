@@ -7,6 +7,10 @@ const configManager = require('./config/configManager');
 const fileMonitor = require('./services/fileMonitor');
 const documentProcessor = require('./services/documentProcessor');
 const aiService = require('./services/aiService');
+const AutoUpdaterService = require('./services/autoUpdater');
+
+// Initialize auto-updater
+let autoUpdater = null;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -264,6 +268,15 @@ app.whenReady().then(() => {
   setupIPCHandlers();
   setupFileMonitor();
   setupGlobalShortcuts();
+  
+  // Initialize auto-updater
+  if (process.env.NODE_ENV !== 'development') {
+    autoUpdater = new AutoUpdaterService();
+    // Check for updates after 3 seconds
+    setTimeout(() => {
+      autoUpdater.checkForUpdates();
+    }, 3000);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
