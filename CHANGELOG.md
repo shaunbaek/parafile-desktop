@@ -2,7 +2,59 @@
 
 All notable changes to ParaFile Desktop will be documented in this file.
 
-## [Unreleased] - 2025-07-30
+## [Unreleased] - 2025-08-04
+
+### Fixed
+- **Missing Dependency**: Added `electron-log@^5.4.2` to dependencies to fix auto-updater service initialization error
+  - Fixed `Error: Cannot find module 'electron-log'` in `src/services/autoUpdater.js:3`
+  - Auto-updater service now initializes properly without module resolution errors
+  
+- **DMG Build Configuration**: Fixed appdmg build configuration in `forge.config.js`
+  - Removed invalid `additionalDMGOptions` property that was causing `Error: data has additional properties`
+  - DMG creation now works correctly with `npm run make` command
+  - Maintained essential DMG properties: format, overwrite, and name
+
+### Documentation Issues Identified
+- **Environment Setup Inconsistency**: CLAUDE.md references `.env.example` file that doesn't exist
+  - Only `.env.build.example` exists for build/signing environment variables
+  - Need to create `.env.example` with `OPENAI_API_KEY=your_api_key_here` for development
+  
+- **README vs CLAUDE.md Conflict**: Contradictory environment setup instructions
+  - README states "No .env file needed!" (GUI-first approach)
+  - CLAUDE.md provides manual `.env` setup instructions (developer approach)
+  - Need to reconcile these two approaches for clarity
+  
+- **AI Model Version Mismatch**: Documentation vs implementation discrepancy
+  - Documentation claims "GPT-4 Turbo" in general terms
+  - Code specifically uses `gpt-4-turbo-preview` model in all API calls
+  - Should specify exact model version in documentation
+
+### Deployment Testing
+- ✅ Successfully packaged application for macOS (arm64)
+- ✅ Created DMG installer (128MB) at `out/make/ParaFile Desktop.dmg`
+- ✅ Verified packaged app launches independently without development dependencies
+- ✅ Confirmed distribution files are properly generated (DMG, ZIP)
+- ✅ All build commands working: `package`, `make`, `publish`
+
+### Technical Details
+#### Files Modified
+- **package.json**: Added `electron-log@^5.4.2` dependency
+- **forge.config.js**: Removed `additionalDMGOptions` from DMG maker configuration
+
+#### Build Commands Verified
+- `npm start` - Launch GUI application ✅
+- `npm run monitor` - Run headless monitoring service ✅  
+- `npm run package` - Package application ✅
+- `npm run make` - Create distribution files (DMG, ZIP) ✅
+- `npm run publish` - Publish to GitHub releases (configured) ✅
+
+#### Architecture Verification
+- All documented file paths and module locations are accurate
+- Core dependencies match documentation specifications
+- Configuration structure matches documented JSON format
+- Service layer architecture aligns with documentation
+
+## [Previous Release] - 2025-07-30
 
 ### Added - Processing Log System
 - **Comprehensive Processing Log**: Added dedicated processing log window accessible via "📋 Open Processing Log" button
