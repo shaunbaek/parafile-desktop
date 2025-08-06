@@ -193,6 +193,72 @@ Respond with a JSON object containing:
     }
   }
 
+  async generatePattern(data, expertise = 'general') {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const { prompt, categoryName, categoryDescription, variables } = data;
+    
+    const expertiseContext = expertise === 'legal' 
+      ? `You are a legal document naming expert. Create patterns suitable for legal document organization.`
+      : `You are a document naming expert. Create patterns suitable for general business document organization.`;
+
+    const availableVars = variables.map(v => `{${v.name}} - ${v.description}`).join('\n');
+
+    const systemPrompt = `${expertiseContext}
+
+Given a user's description of how they want to name files in a category, create a naming pattern using available variables.
+
+Category: ${categoryName}
+Category Description: ${categoryDescription}
+
+Available variables:
+${availableVars}
+
+IMPORTANT RULES:
+1. Use ONLY the available variables listed above
+2. Variables must be wrapped in curly braces: {variable_name}
+3. Use underscores (_) or hyphens (-) between variables
+4. Keep patterns concise but informative
+5. Order variables logically (e.g., date first, then type, then name)
+6. Do NOT create new variables that aren't in the list
+
+Example patterns:
+- {date}_{invoice_number}_{vendor}
+- {contract_type}_{client_name}_{date}
+- {report_type}_{period}_{department}
+
+Respond with a JSON object containing:
+- pattern: The naming pattern using available variables
+- example: A realistic example of what a filename might look like using this pattern`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `User request: ${prompt}` }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      return {
+        success: true,
+        pattern: result.pattern,
+        example: result.example
+      };
+    } catch (error) {
+      console.error('Error generating pattern:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   async generateShortDescription(variableName, description, expertise = 'general') {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');

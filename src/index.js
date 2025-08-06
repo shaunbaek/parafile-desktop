@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, globalShortcut, Notification } = require('electron');
 const path = require('node:path');
 require('dotenv').config();
 
@@ -451,6 +451,24 @@ function setupIPCHandlers() {
       return { success: false, error: error.message };
     }
   });
+  
+  // AI pattern generation
+  ipcMain.handle('api:generatePattern', async (event, data) => {
+    try {
+      const config = await configManager.load();
+      if (!config.openai_api_key) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      aiService.initialize(config.openai_api_key);
+      const result = await aiService.generatePattern(data, config.expertise);
+      
+      return result;
+    } catch (error) {
+      console.error('Error generating pattern:', error);
+      return { success: false, error: error.message };
+    }
+  });
 
   // AI description evaluation
   ipcMain.handle('api:evaluateDescription', async (event, variableName, description) => {
@@ -545,16 +563,14 @@ function setupFileMonitor() {
       if (result.success) {
         console.log(`Successfully processed: ${result.fileName} -> ${result.newName}`);
         
-        // Show system notification when app is in background
-        if (!mainWindow.isVisible()) {
-          const { Notification } = require('electron');
-          if (Notification.isSupported()) {
-            new Notification({
-              title: 'Document Processed',
-              body: `${result.fileName} → ${result.category}`,
-              icon: path.join(__dirname, 'assets/icon.png')
-            }).show();
-          }
+        // Show system notification based on user preference
+        const config = await configManager.load();
+        if (config.enable_desktop_notifications && Notification.isSupported()) {
+          new Notification({
+            title: 'Document Processed',
+            body: `${result.fileName} → ${result.newName} (${result.category})`,
+            icon: path.join(__dirname, 'assets/icon.png')
+          }).show();
         }
       } else {
         console.error(`Failed to process: ${result.fileName} - ${result.error}`);

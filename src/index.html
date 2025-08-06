@@ -166,8 +166,13 @@
           
           <div class="form-group">
             <label for="namingPattern">Naming Pattern</label>
-            <textarea id="namingPattern" class="form-textarea pattern-input" required 
-                      placeholder="Example: {date}_{client_name}_{document_type}"></textarea>
+            <div class="input-with-ai">
+              <textarea id="namingPattern" class="form-textarea pattern-input" required 
+                        placeholder="Example: {date}_{client_name}_{document_type}"></textarea>
+              <button type="button" id="patternAISuggest" class="ai-suggest-btn" title="AI Suggest Pattern">
+                <span>✨</span> AI Suggest
+              </button>
+            </div>
             <p class="variable-hint">Click variables below to insert them into your pattern</p>
             <div id="availableVariables" class="variable-list"></div>
           </div>
@@ -258,6 +263,18 @@
               </label>
               <label for="minimizeToTray" class="toggle-label">
                 Keep running in background when window is closed
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <div class="toggle-container">
+              <label class="toggle-switch">
+                <input type="checkbox" id="enableDesktopNotifications">
+                <span class="toggle-slider"></span>
+              </label>
+              <label for="enableDesktopNotifications" class="toggle-label">
+                Show desktop notifications for file processing
               </label>
             </div>
           </div>
@@ -505,6 +522,50 @@
           <h3 id="loadingTitle" style="margin-bottom: 10px; color: var(--primary);">Evaluating Description</h3>
           <p id="loadingMessage" style="color: #232323; opacity: 0.8;">Analyzing your variable description for clarity and completeness...</p>
         </div>
+      </div>
+    </div>
+    
+    <!-- AI Pattern Suggestion Modal -->
+    <div id="aiPatternModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>AI Pattern Suggestion</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <form id="aiPatternForm">
+          <div class="form-group">
+            <label for="patternPrompt">Describe how you want to name files in this category</label>
+            <textarea id="patternPrompt" class="form-textarea" required 
+                      placeholder="Examples:&#10;&#10;• For invoices: 'I want the date, vendor name, and invoice number'&#10;• For contracts: 'Include the contract type, client name, and signing date'&#10;• For reports: 'Show the report type, period covered, and department'&#10;&#10;Available variables will be used to create your pattern!"
+                      style="min-height: 180px;"></textarea>
+          </div>
+          
+          <div class="form-group" style="background: var(--tertiary); padding: 15px; border-radius: 10px;">
+            <h4 style="margin-bottom: 10px; color: var(--primary);">Available Variables:</h4>
+            <div id="patternAvailableVars" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+          </div>
+          
+          <div class="form-group" id="patternSuggestionResult" style="display: none;">
+            <h4 style="margin-bottom: 10px; color: var(--primary);">AI Suggestion:</h4>
+            <div style="background: var(--tertiary); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+              <p style="margin-bottom: 8px;"><strong>Pattern:</strong></p>
+              <code id="suggestedPattern" style="display: block; font-family: monospace; background: var(--background); padding: 12px; border-radius: 6px; margin-bottom: 10px;"></code>
+              <p style="margin-bottom: 8px;"><strong>Example Output:</strong></p>
+              <code id="patternExample" style="display: block; font-family: monospace; background: var(--background); padding: 8px; border-radius: 4px; color: var(--primary);"></code>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="generatePatternBtn">
+              <span>🤖</span> Generate Pattern
+            </button>
+            <button type="button" class="btn btn-success" id="usePatternBtn" style="display: none;">
+              <span>✓</span> Use This Pattern
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 

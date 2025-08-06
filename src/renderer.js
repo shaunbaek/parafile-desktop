@@ -84,6 +84,29 @@ function setupEventListeners() {
     document.getElementById('useSuggestionBtn').style.display = 'none';
   });
   
+  // AI Pattern Suggestion
+  document.getElementById('patternAISuggest').addEventListener('click', async () => {
+    const modal = document.getElementById('aiPatternModal');
+    modal.classList.add('active');
+    document.getElementById('patternPrompt').value = '';
+    document.getElementById('patternSuggestionResult').style.display = 'none';
+    document.getElementById('generatePatternBtn').style.display = 'block';
+    document.getElementById('usePatternBtn').style.display = 'none';
+    
+    // Load current variables to show in the modal
+    const config = await ipcRenderer.invoke('config:load');
+    const varsContainer = document.getElementById('patternAvailableVars');
+    varsContainer.innerHTML = '';
+    
+    config.variables.forEach(variable => {
+      const varChip = document.createElement('span');
+      varChip.style.cssText = 'background: var(--background); padding: 4px 12px; border-radius: 16px; font-family: monospace; font-size: 0.9em; border: 1px solid rgba(0,0,0,0.1);';
+      varChip.textContent = `{${variable.name}}`;
+      varChip.title = variable.description;
+      varsContainer.appendChild(varChip);
+    });
+  });
+  
   // Settings
   document.getElementById('settingsBtn').addEventListener('click', () => showSettingsModal());
   
@@ -368,6 +391,9 @@ async function showSettingsModal() {
   const minimizeToTray = localStorage.getItem('minimizeToTray') === 'true';
   document.getElementById('minimizeToTray').checked = minimizeToTray;
   
+  // Load desktop notifications setting
+  document.getElementById('enableDesktopNotifications').checked = currentConfig.enable_desktop_notifications !== false;
+  
   // Clear status
   document.getElementById('apiKeyStatus').textContent = '';
   document.getElementById('apiKeyStatus').className = 'api-key-status';
@@ -524,6 +550,68 @@ function setupModalControls() {
     // Keep variable modal open so user can review/edit before saving
     showNotification('Success', 'Suggestion applied. Review and save the variable.', 'success');
   });
+  
+  // AI Pattern Suggestion form
+  document.getElementById('aiPatternForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const prompt = document.getElementById('patternPrompt').value.trim();
+    const categoryName = document.getElementById('categoryName').value.trim();
+    const categoryDesc = document.getElementById('categoryDescription').value.trim();
+    
+    if (!prompt) return;
+    
+    const generateBtn = document.getElementById('generatePatternBtn');
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<span>⏳</span> Generating...';
+    generateBtn.disabled = true;
+    
+    try {
+      const config = await ipcRenderer.invoke('config:load');
+      const result = await ipcRenderer.invoke('api:generatePattern', {
+        prompt,
+        categoryName,
+        categoryDescription: categoryDesc,
+        variables: config.variables
+      });
+      
+      if (result.success) {
+        // Display the suggestion
+        document.getElementById('suggestedPattern').textContent = result.pattern;
+        document.getElementById('patternExample').textContent = result.example || 'Example: document_2024-03-15_processed.pdf';
+        document.getElementById('patternSuggestionResult').style.display = 'block';
+        
+        // Store the suggestion for later use
+        document.getElementById('aiPatternModal').dataset.suggestedPattern = result.pattern;
+        
+        // Update buttons
+        generateBtn.style.display = 'none';
+        document.getElementById('usePatternBtn').style.display = 'block';
+      } else {
+        showNotification('Error', result.error || 'Failed to generate pattern', 'error');
+      }
+    } catch (error) {
+      showNotification('Error', 'Failed to generate pattern', 'error');
+    } finally {
+      generateBtn.innerHTML = originalText;
+      generateBtn.disabled = false;
+    }
+  });
+  
+  // Use pattern suggestion button
+  document.getElementById('usePatternBtn').addEventListener('click', () => {
+    const modal = document.getElementById('aiPatternModal');
+    const pattern = modal.dataset.suggestedPattern;
+    
+    // Populate the pattern field
+    document.getElementById('namingPattern').value = pattern;
+    
+    // Close AI pattern modal
+    modal.classList.remove('active');
+    
+    // Keep category modal open so user can review/edit before saving
+    showNotification('Success', 'Pattern applied. Review and save the category.', 'success');
+  });
 
   // Description suggestion modal handlers
   document.getElementById('keepOriginalBtn').addEventListener('click', async () => {
@@ -561,13 +649,16 @@ function setupModalControls() {
     
     const apiKey = document.getElementById('openaiApiKey').value.trim();
     const minimizeToTray = document.getElementById('minimizeToTray').checked;
+    const enableDesktopNotifications = document.getElementById('enableDesktopNotifications').checked;
     
-    // Save API key
+    // Save API key and notification settings
     await ipcRenderer.invoke('config:updateSettings', {
-      openai_api_key: apiKey
+      openai_api_key: apiKey,
+      enable_desktop_notifications: enableDesktopNotifications
     });
     
     currentConfig.openai_api_key = apiKey;
+    currentConfig.enable_desktop_notifications = enableDesktopNotifications;
     
     // Save minimize to tray setting
     localStorage.setItem('minimizeToTray', minimizeToTray);

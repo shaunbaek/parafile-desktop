@@ -9,6 +9,7 @@ class ConfigManager {
     this.defaultConfig = {
       watched_folder: '',
       enable_organization: true,
+      enable_desktop_notifications: true,
       openai_api_key: '',
       expertise: 'general',
       categories: [
@@ -61,6 +62,7 @@ class ConfigManager {
     const repaired = {
       watched_folder: config.watched_folder || '',
       enable_organization: config.enable_organization !== false,
+      enable_desktop_notifications: config.enable_desktop_notifications !== false,
       openai_api_key: config.openai_api_key || '',
       expertise: config.expertise || 'general',
       categories: Array.isArray(config.categories) ? config.categories : [],
