@@ -3,6 +3,7 @@ const textExtractor = require('./textExtractor');
 const aiService = require('./aiService');
 const fileOrganizer = require('./fileOrganizer');
 const errorHandler = require('../utils/errorHandler');
+const configManager = require('../config/configManager');
 
 class DocumentProcessor {
   async processDocument(fileInfo, config) {
@@ -19,6 +20,9 @@ class DocumentProcessor {
 
     try {
       console.log(`Processing document: ${result.fileName}`);
+      
+      // Check if this file has already been processed by ParaFile
+      const isAlreadyProcessed = await configManager.isFileAlreadyProcessed(result.fileName);
       
       // Initialize AI service with API key from config
       if (config.openai_api_key) {
@@ -60,9 +64,13 @@ class DocumentProcessor {
         }
       }
       
-      // Generate filename with AI
+      // Generate filename with AI (skip if already processed)
       let finalName;
-      if (category.naming_pattern.includes('{original_name}') && !category.naming_pattern.match(/\{(?!original_name\})[^}]+\}/)) {
+      if (isAlreadyProcessed) {
+        // File was already renamed by ParaFile, keep the current name
+        console.log(`File already processed by ParaFile, keeping name: ${result.fileName}`);
+        finalName = originalNameWithoutExt;
+      } else if (category.naming_pattern.includes('{original_name}') && !category.naming_pattern.match(/\{(?!original_name\})[^}]+\}/)) {
         // Simple pattern with only original_name
         finalName = originalNameWithoutExt;
       } else {
@@ -75,9 +83,9 @@ class DocumentProcessor {
         finalName = generatedName.replace('{original_name}', originalNameWithoutExt);
       }
       
-      // Organize file
+      // Organize file (skip rename if already processed)
       const organizeResult = await errorHandler.safeExecute(
-        () => fileOrganizer.processFile(fileInfo.path, category.name, finalName, config),
+        () => fileOrganizer.processFile(fileInfo.path, category.name, finalName, config, isAlreadyProcessed),
         `File organization for ${result.fileName}`
       );
       

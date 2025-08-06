@@ -3,10 +3,11 @@ const path = require('path');
 const fileMonitor = require('./fileMonitor');
 
 class FileOrganizer {
-  async processFile(filePath, category, newName, config) {
+  async processFile(filePath, category, newName, config, skipRename = false) {
     const fileDir = path.dirname(filePath);
     const fileExt = path.extname(filePath);
-    const baseNewName = newName + fileExt;
+    const currentFileName = path.basename(filePath);
+    const baseNewName = skipRename ? currentFileName : (newName + fileExt);
     
     let targetDir, targetPath;
     
@@ -17,7 +18,21 @@ class FileOrganizer {
       targetDir = fileDir;
     }
     
-    targetPath = await this.getUniqueFilePath(targetDir, baseNewName);
+    // Check if the file would be renamed to the same name in the same location
+    const potentialPath = path.join(targetDir, baseNewName);
+    if (path.resolve(filePath) === path.resolve(potentialPath)) {
+      // File is already in the right place with the right name
+      return {
+        success: true,
+        originalPath: filePath,
+        newPath: filePath,
+        category: category,
+        newName: path.basename(filePath),
+        skipped: true
+      };
+    }
+    
+    targetPath = await this.getUniqueFilePath(targetDir, baseNewName, filePath);
     
     try {
       await fs.rename(filePath, targetPath);
@@ -50,7 +65,7 @@ class FileOrganizer {
     }
   }
 
-  async getUniqueFilePath(directory, filename) {
+  async getUniqueFilePath(directory, filename, originalPath = null) {
     const ext = path.extname(filename);
     const baseName = path.basename(filename, ext);
     let counter = 0;
@@ -59,6 +74,10 @@ class FileOrganizer {
     while (true) {
       try {
         await fs.access(uniquePath);
+        // If the target path exists but it's the same file we're trying to move, that's ok
+        if (originalPath && path.resolve(uniquePath) === path.resolve(originalPath)) {
+          return uniquePath;
+        }
         counter++;
         const newName = `${baseName}_${counter}${ext}`;
         uniquePath = path.join(directory, newName);

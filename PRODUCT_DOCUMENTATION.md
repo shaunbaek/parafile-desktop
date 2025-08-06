@@ -1,253 +1,156 @@
-# ParaFile Desktop - Product Documentation
+# ParaFile Desktop
 
-> **Automating Admin Work for Law Firms**  
-> Cut down on non-billable hours spent on administrative tasks
+Document organization app that watches folders and automatically renames/organizes PDF and Word files using AI.
 
----
+## Installation
 
-## 📋 Overview
-
-ParaFile Desktop automates manual and repetitive administrative workflows for law firms, starting with document organization. Our desktop application helps paralegals and legal staff save 10-20% of their day by automatically organizing, categorizing, and renaming legal documents using AI-powered technology.
-
-Built specifically for the legal industry, ParaFile Desktop understands legal document types, extracts key information, and maintains organized file structures without manual intervention.
-
----
-
-## 🎯 Why ParaFile?
-
-### The Problem
-- Paralegals spend **10-20% of their day** on document organization
-- Manual filing is prone to errors and inconsistencies  
-- Time spent on admin work is non-billable, reducing firm profitability
-- Junior lawyers waste hours on repetitive tasks instead of meaningful legal work
-
-### Our Solution
-- **Automated categorization** of legal documents (contracts, pleadings, discovery, etc.)
-- **Intelligent file naming** that extracts case numbers, party names, and dates
-- **Zero-touch organization** that runs continuously in the background
-- **Legal-specific AI** trained to understand legal terminology and document structures
-
----
-
-## ⚖️ Built for Legal Professionals
-
-### Document Types We Handle
-- **Contracts & Agreements**: Service agreements, NDAs, employment contracts
-- **Court Documents**: Pleadings, motions, orders, judgments
-- **Discovery Materials**: Interrogatories, depositions, document productions
-- **Client Communications**: Letters, emails, memoranda
-- **Administrative Files**: Invoices, timesheets, expense reports
-
-### Legal-Specific Features
-- **Case Number Extraction**: Automatically identifies and extracts case numbers
-- **Party Name Recognition**: Detects plaintiff, defendant, and client names
-- **Date Intelligence**: Extracts filing dates, deadlines, and effective dates
-- **Document Type Classification**: Recognizes 50+ legal document types
-- **Bates Numbering Support**: Maintains Bates number sequences
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **Windows** 10+ or **macOS** 10.14+
-- **4GB RAM** minimum (8GB recommended)
-- **OpenAI API Key** for AI features
-
-### Quick Installation
-
-1. **Download ParaFile Desktop**
-   ```bash
-   # For development/testing
-   git clone https://github.com/parafile/parafile-desktop.git
-   cd parafile-desktop
-   npm ci
-   npm start
-   ```
-
-2. **Configure API Key**
-   - Open Settings
-   - Enter your OpenAI API key
-   - Click "Test Connection"
-
-3. **Select Document Folder**
-   - Choose your firm's document folder
-   - All subfolders are automatically monitored
-   - Click "Start Monitoring"
-
----
-
-## 📖 How Law Firms Use ParaFile
-
-### Typical Workflow
-
-1. **Documents Arrive**
-   - New documents saved to monitored folders
-   - Email attachments downloaded to intake folder
-   - Scanned documents added to processing queue
-
-2. **Automatic Processing**
-   - ParaFile detects new files within seconds
-   - AI analyzes content and extracts key information
-   - Documents are renamed according to firm standards
-   - Files move to appropriate case or matter folders
-
-3. **Background Operation**
-   - Runs silently in system tray
-   - Processes documents without interrupting work
-   - Sends notifications for important documents
-
-### Setting Up Legal Categories
-
-Create categories that match your firm's practice areas:
-
-```
-Category: Contracts
-Description: Legal agreements, contracts, amendments, and addenda
-Pattern: {case_number}_{contract_type}_{party_names}_{execution_date}
-
-Category: Pleadings  
-Description: Court filings, motions, complaints, answers, and briefs
-Pattern: {case_number}_{document_type}_{filing_date}
-
-Category: Discovery
-Description: Discovery requests, responses, and productions
-Pattern: {case_number}_DISCOVERY_{document_type}_{date}
+```bash
+git clone https://github.com/shaunbaek/parafile-desktop.git
+cd parafile-desktop
+npm ci
+npm start
 ```
 
-### Configuring Legal Variables
+## Setup
 
-Extract specific information from legal documents:
+1. First launch shows welcome screen
+2. Go to Settings → Add your OpenAI API key → Test Connection → Save
+3. Select a folder to monitor
+4. Click "Start Monitoring"
 
+## How It Works
+
+ParaFile watches your selected folder (and all subfolders) for new PDF and Word documents. When it finds one:
+
+1. Extracts the text content
+2. Sends text to OpenAI to figure out what kind of document it is
+3. Renames the file based on your naming patterns
+4. Moves it to a category subfolder (if organization is enabled)
+
+## Categories
+
+Categories are how ParaFile decides where to put files.
+
+**Add a category:**
+- Click Categories → Add Category
+- Name: What to call this category (like "Invoices")
+- Description: Tell the AI what belongs here (like "Bills, invoices, payment requests")
+- Naming Pattern: How to rename files (like `{date}_{vendor}_{amount}`)
+
+**Default category:**
+- "General" category can't be deleted
+- Files go here if they don't match other categories
+
+## Variables
+
+Variables are pieces of info ParaFile extracts from documents to use in filenames.
+
+**Add a variable:**
+- Click Variables → Add Variable
+- Name: Variable name (like "invoice_date")
+- Description: What to extract (like "The invoice date in YYYY-MM-DD format")
+
+**Built-in variable:**
+- `{original_name}` - Always available, can't be deleted
+
+**AI Suggest:**
+- Type what you want in plain English
+- AI generates the variable name and description
+- Example: "get the total amount from invoices" → creates `invoice_total` variable
+
+## Features & Quirks
+
+**Background operation:**
+- Close window → minimizes to system tray
+- Global shortcut: `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+- Right-click tray icon for menu
+
+**Processing log:**
+- Click "Open Processing Log" to see all processed files
+- Shows: original name, new name, category, AI's reasoning
+- Click any row to fix wrong categorizations
+
+**Drag and drop:**
+- Drop PDF/Word files directly onto the app window
+- Processes immediately, even if monitoring is stopped
+
+**Expertise modes:**
+- General: Regular documents
+- Legal: Better at legal documents (contracts, pleadings, etc.)
+
+**File handling:**
+- Only processes truly new files
+- Ignores files it already moved
+- Waits if file is still being written
+- Skips password-protected files
+
+## Command Line Mode
+
+Run without GUI:
+```bash
+npm run monitor
 ```
-Variable: case_number
-Description: Extract case number in format XX-CV-XXXXX or similar
 
-Variable: opposing_counsel
-Description: Extract name of opposing counsel or law firm
+Useful for running on servers or in background. Requires initial GUI setup for API key.
 
-Variable: filing_deadline
-Description: Extract any filing deadlines mentioned in document
+## Settings
 
-Variable: contract_value  
-Description: Extract total contract amount or settlement value
+**Location of config file:**
+- Mac: `~/Library/Application Support/parafile-desktop/config.json`
+- Windows: `%APPDATA%\parafile-desktop\config.json`
+- Linux: `~/.config/parafile-desktop/config.json`
+
+**What's in the config:**
+- Your API key
+- Watched folder path
+- Categories and variables
+- Organization on/off
+- Expertise mode
+
+## Building
+
+```bash
+# Package the app
+npm run package
+
+# Create installer (DMG on Mac, EXE on Windows)
+npm run make
+
+# Publish to GitHub releases
+npm run publish
 ```
 
----
+## Limitations
 
-## 🛠️ Law Firm Configuration
+- Only PDF and Word files (.pdf, .doc, .docx)
+- Needs text in documents (scanned images without OCR won't work)
+- One file at a time processing
+- Max 4000 characters sent to AI per document
 
-### Recommended Settings
+## Tips
 
-1. **Expertise Mode**: Set to "Legal" for specialized document handling
-2. **Naming Conventions**: Configure to match your firm's standards
-3. **Folder Structure**: Organize by client/matter or practice area
-4. **Processing Rules**: Set up rules for different document types
+- Make category descriptions specific - "Invoices from vendors" works better than "money stuff"
+- Test variables on a few documents first
+- Check the processing log regularly
+- Original files are preserved (ParaFile makes copies when organizing)
 
-### Example Configuration
+## Common Issues
 
-```json
-{
-  "expertise": "legal",
-  "watched_folder": "/Users/firm/Documents/Intake",
-  "categories": [
-    {
-      "name": "Client Contracts",
-      "description": "Client engagement letters and fee agreements",
-      "naming_pattern": "{client_name}_FeeAgreement_{date}"
-    },
-    {
-      "name": "Court Filings",
-      "description": "Documents filed with the court",
-      "naming_pattern": "{case_number}_{document_type}_{filing_date}"
-    }
-  ]
-}
-```
+**Nothing happening:**
+- Check monitoring is started (button should say "Stop Monitoring")
+- Make sure you're adding PDF or Word files
+- Look at the processing log for errors
 
----
+**Wrong categorization:**
+- Make category descriptions more specific
+- Add more examples to variable descriptions
+- Use the correction feature in processing log
 
-## 📊 Real-World Impact
+**Can't start:**
+- Delete `node_modules` folder and run `npm ci` again
+- Make sure Node.js version 16+
 
-### Time Savings
-- **Before**: 2 hours daily on document organization
-- **After**: 10 minutes reviewing automated results
-- **Result**: 95% reduction in admin time
-
-### Accuracy Improvements
-- Consistent naming across all documents
-- No misfiled documents
-- Easy retrieval during discovery
-- Reduced risk of missing deadlines
-
-### Billable Hours Recovery
-- Paralegals focus on billable work
-- Junior associates spend time on legal research
-- Partners see improved realization rates
-
----
-
-## 🔧 Troubleshooting for Law Firms
-
-### Common Legal Document Issues
-
-**"Case number not extracted correctly"**
-- Ensure case number format is specified in variables
-- Add examples: "XX-CV-XXXXX" or "2024-12345"
-- Contact support for custom extraction rules
-
-**"Documents going to wrong matter folder"**
-- Review category descriptions
-- Make categories more specific to practice areas
-- Use matter numbers in naming patterns
-
-**"Confidential documents"**
-- ParaFile processes everything locally
-- No documents leave your computer
-- Only text is sent to AI for analysis
-
----
-
-## 🔒 Security & Compliance
-
-### Data Security
-- **100% Local Processing**: Documents never leave your firm
-- **No Cloud Storage**: All files remain on your systems
-- **Encrypted API Calls**: Only document text sent for AI analysis
-- **Access Controls**: Respects Windows/macOS file permissions
-
-### Compliance Features
-- Maintains audit trail in processing log
-- Preserves original files (copies for organization)
-- Supports retention policies
-- Compatible with document management systems
-
----
-
-## 📞 Support for Law Firms
-
-### Getting Help
-- **Email**: support@tryparafile.com
-- **Documentation**: This guide and quick-start materials
-- **Response Time**: Within 24 hours for law firm customers
-
-### Training Resources
-- Video tutorials for legal staff
-- Best practices for legal document organization  
-- Custom category templates for different practice areas
-- Integration guides for popular legal software
-
----
-
-## 🚀 Coming Soon
-
-### Planned Features
-- **Email Integration**: Auto-process email attachments
-- **OCR Support**: Handle scanned documents
-- **DMS Integration**: Connect with iManage, NetDocuments
-- **Batch Processing**: Handle large discovery productions
-- **Custom Workflows**: Multi-step document processing
-
----
-
-*ParaFile Desktop - Automating admin work so you can focus on practicing law*
+**API errors:**
+- Check your OpenAI API key is valid
+- Make sure you have GPT-4 access
+- Watch your API usage limits

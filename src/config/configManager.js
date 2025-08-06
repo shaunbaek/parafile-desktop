@@ -225,6 +225,12 @@ class ConfigManager {
     }
   }
 
+  async isFileAlreadyProcessed(filename) {
+    const logs = await this.loadLog();
+    // Check if this filename exists as a parafileName in the log
+    return logs.some(log => log.parafileName === filename && log.success);
+  }
+
   async addLogCorrection(id, correction) {
     const logs = await this.loadLog();
     const index = logs.findIndex(log => log.id === id);
