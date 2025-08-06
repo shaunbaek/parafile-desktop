@@ -193,6 +193,49 @@ Respond with a JSON object containing:
     }
   }
 
+  async generateCategorySuggestion(userPrompt, expertise = 'general') {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const expertiseContext = expertise === 'legal' 
+      ? `You are a legal document categorization expert. Focus on legal terminology, document types, and legal document structures when generating suggestions. Consider common legal document categories like contracts, leases, court filings, corporate documents, etc.`
+      : `You are a general document categorization assistant. Focus on common business and personal document types.`;
+
+    const systemPrompt = `${expertiseContext}
+
+Generate a category name and description for a document processing system based on the user's description of what types of documents they want to categorize:
+
+1. A concise, descriptive category name (title case, e.g., "Financial Records", "Legal Contracts")
+2. A clear description that explains what documents belong in this category for AI categorization
+
+The category name should be user-friendly and descriptive.
+The description should be specific and clear for the AI to understand what documents to categorize into this category.
+
+Respond with a JSON object containing:
+- name: The category name (title case)
+- description: A clear, detailed description of what documents belong in this category`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 200
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      return result;
+    } catch (error) {
+      console.error('Error generating category suggestion:', error);
+      throw error;
+    }
+  }
+
   async generatePattern(data, expertise = 'general') {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
@@ -252,6 +295,96 @@ Respond with a JSON object containing:
       };
     } catch (error) {
       console.error('Error generating pattern:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async searchFiles(data, expertise = 'general') {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const { query, fileList } = data;
+    
+    const expertiseContext = expertise === 'legal' 
+      ? `You are a legal document search expert. Focus on legal terminology, document types, and legal relationships.`
+      : `You are a document search expert. Focus on understanding user intent and document content.`;
+
+    // Convert file list to searchable text
+    const fileDescriptions = fileList.map(file => 
+      `${file.filename} (${file.path}): ${file.content || 'No content preview'}`
+    ).join('\n\n');
+
+    const systemPrompt = `${expertiseContext}
+
+You are helping users find files using natural language queries. Given a user's search query and a list of files with their content, identify the most relevant files.
+
+IMPORTANT: Only return files that actually exist in the provided list. Do not make up or suggest files that aren't listed.
+
+User query: "${query}"
+
+Available files:
+${fileDescriptions}
+
+Analyze the query and find files that match based on:
+1. Content relevance (what the file contains)
+2. Filename relevance 
+3. Conceptual matches (e.g., "invoice" matches "bill" or "payment")
+4. Date/time references if mentioned
+5. Company/person names if mentioned
+
+Respond with a JSON object containing an array of the most relevant files, ordered by relevance (best first). Include up to 10 results.
+
+Format:
+{
+  "results": [
+    {
+      "filename": "exact filename from list",
+      "path": "exact path from list", 
+      "relevanceScore": 0.95,
+      "reason": "Brief explanation why this file matches the query"
+    }
+  ]
+}
+
+If no files match, return: {"results": []}`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      
+      // Ensure we always return an array
+      let results = [];
+      if (result.results && Array.isArray(result.results)) {
+        results = result.results;
+      } else if (Array.isArray(result)) {
+        results = result;
+      } else if (result && typeof result === 'object') {
+        // If it's an object but not what we expect, try to extract any array property
+        const arrayKeys = Object.keys(result).find(key => Array.isArray(result[key]));
+        if (arrayKeys) {
+          results = result[arrayKeys];
+        }
+      }
+      
+      return {
+        success: true,
+        results: results
+      };
+    } catch (error) {
+      console.error('Error searching files:', error);
       return {
         success: false,
         error: error.message

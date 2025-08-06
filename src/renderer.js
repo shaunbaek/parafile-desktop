@@ -84,27 +84,15 @@ function setupEventListeners() {
     document.getElementById('useSuggestionBtn').style.display = 'none';
   });
   
-  // AI Pattern Suggestion
-  document.getElementById('patternAISuggest').addEventListener('click', async () => {
-    const modal = document.getElementById('aiPatternModal');
+
+  // Category AI suggestion button
+  document.getElementById('categoryAISuggest').addEventListener('click', async () => {
+    const modal = document.getElementById('aiCategorySuggestionModal');
     modal.classList.add('active');
-    document.getElementById('patternPrompt').value = '';
-    document.getElementById('patternSuggestionResult').style.display = 'none';
-    document.getElementById('generatePatternBtn').style.display = 'block';
-    document.getElementById('usePatternBtn').style.display = 'none';
-    
-    // Load current variables to show in the modal
-    const config = await ipcRenderer.invoke('config:load');
-    const varsContainer = document.getElementById('patternAvailableVars');
-    varsContainer.innerHTML = '';
-    
-    config.variables.forEach(variable => {
-      const varChip = document.createElement('span');
-      varChip.style.cssText = 'background: var(--background); padding: 4px 12px; border-radius: 16px; font-family: monospace; font-size: 0.9em; border: 1px solid rgba(0,0,0,0.1);';
-      varChip.textContent = `{${variable.name}}`;
-      varChip.title = variable.description;
-      varsContainer.appendChild(varChip);
-    });
+    document.getElementById('categoryPrompt').value = '';
+    document.getElementById('categorySuggestionResult').style.display = 'none';
+    document.getElementById('generateCategorySuggestionBtn').style.display = 'block';
+    document.getElementById('useCategorySuggestionBtn').style.display = 'none';
   });
   
   // Settings
@@ -173,7 +161,7 @@ async function toggleMonitoring() {
   
   if (isRunning) {
     await ipcRenderer.invoke('monitor:stop');
-    btn.innerHTML = '<span>▶️</span> Start Monitoring';
+    btn.innerHTML = 'Start Monitoring';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
     document.getElementById('dropZone').style.display = 'none';
@@ -189,7 +177,7 @@ async function toggleMonitoring() {
     }
     
     // Test API key before starting monitoring
-    btn.innerHTML = '<span>⏳</span> Testing API Key...';
+    btn.innerHTML = 'Testing API Key...';
     btn.disabled = true;
     
     try {
@@ -197,14 +185,14 @@ async function toggleMonitoring() {
       
       if (!apiTest.success) {
         showNotification('API Key Error', `Cannot start monitoring: ${apiTest.error}`, 'error');
-        btn.innerHTML = '<span>▶️</span> Start Monitoring';
+        btn.innerHTML = 'Start Monitoring';
         btn.disabled = false;
         return;
       }
       
       // API key is valid, start monitoring
       await ipcRenderer.invoke('monitor:start', currentConfig.watched_folder);
-      btn.innerHTML = '<span>⏸️</span> Stop Monitoring';
+      btn.innerHTML = 'Stop Monitoring';
       btn.classList.remove('btn-success');
       btn.classList.add('btn-danger');
       btn.disabled = false;
@@ -214,7 +202,7 @@ async function toggleMonitoring() {
       
     } catch (error) {
       showNotification('Error', `Failed to test API key: ${error.message}`, 'error');
-      btn.innerHTML = '<span>▶️</span> Start Monitoring';
+      btn.innerHTML = 'Start Monitoring';
       btn.disabled = false;
     }
   }
@@ -229,14 +217,14 @@ function updateMonitorStatus(isRunning) {
   if (isRunning) {
     statusDot.classList.add('running');
     statusText.textContent = 'Running';
-    btn.innerHTML = '<span>⏸️</span> Stop Monitoring';
+    btn.innerHTML = 'Stop Monitoring';
     btn.classList.remove('btn-success');
     btn.classList.add('btn-danger');
     document.getElementById('dropZone').style.display = 'block';
   } else {
     statusDot.classList.remove('running');
     statusText.textContent = 'Not running';
-    btn.innerHTML = '<span>▶️</span> Start Monitoring';
+    btn.innerHTML = 'Start Monitoring';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
     document.getElementById('dropZone').style.display = 'none';
@@ -504,7 +492,7 @@ function setupModalControls() {
     
     const generateBtn = document.getElementById('generateSuggestionBtn');
     const originalText = generateBtn.innerHTML;
-    generateBtn.innerHTML = '<span>⏳</span> Generating...';
+    generateBtn.innerHTML = 'Generating...';
     generateBtn.disabled = true;
     
     try {
@@ -563,7 +551,7 @@ function setupModalControls() {
     
     const generateBtn = document.getElementById('generatePatternBtn');
     const originalText = generateBtn.innerHTML;
-    generateBtn.innerHTML = '<span>⏳</span> Generating...';
+    generateBtn.innerHTML = 'Generating...';
     generateBtn.disabled = true;
     
     try {
@@ -598,6 +586,59 @@ function setupModalControls() {
     }
   });
   
+  // Category AI suggestion form
+  document.getElementById('aiCategorySuggestionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const prompt = document.getElementById('categoryPrompt').value.trim();
+    if (!prompt) return;
+    
+    const generateBtn = document.getElementById('generateCategorySuggestionBtn');
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = 'Generating...';
+    generateBtn.disabled = true;
+    
+    try {
+      const result = await ipcRenderer.invoke('api:generateCategorySuggestion', prompt);
+      
+      if (result.success) {
+        // Display the suggestion
+        document.getElementById('suggestedCategoryName').textContent = result.suggestion.name;
+        document.getElementById('suggestedCategoryDescription').textContent = result.suggestion.description;
+        document.getElementById('categorySuggestionResult').style.display = 'block';
+        
+        // Store the suggestion for later use
+        document.getElementById('aiCategorySuggestionModal').dataset.suggestedName = result.suggestion.name;
+        document.getElementById('aiCategorySuggestionModal').dataset.suggestedDescription = result.suggestion.description;
+        
+        // Update buttons
+        generateBtn.style.display = 'none';
+        document.getElementById('useCategorySuggestionBtn').style.display = 'block';
+      } else {
+        showNotification('Error', result.error || 'Failed to generate category suggestion', 'error');
+      }
+    } catch (error) {
+      showNotification('Error', 'Failed to generate category suggestion', 'error');
+    } finally {
+      generateBtn.innerHTML = originalText;
+      generateBtn.disabled = false;
+    }
+  });
+
+  // Use category suggestion button
+  document.getElementById('useCategorySuggestionBtn').addEventListener('click', () => {
+    const modal = document.getElementById('aiCategorySuggestionModal');
+    const name = modal.dataset.suggestedName;
+    const description = modal.dataset.suggestedDescription;
+    
+    // Fill the category form with the suggested values
+    document.getElementById('categoryName').value = name;
+    document.getElementById('categoryDescription').value = description;
+    
+    // Close the AI suggestion modal
+    modal.classList.remove('active');
+  });
+
   // Use pattern suggestion button
   document.getElementById('usePatternBtn').addEventListener('click', () => {
     const modal = document.getElementById('aiPatternModal');
@@ -612,6 +653,126 @@ function setupModalControls() {
     // Keep category modal open so user can review/edit before saving
     showNotification('Success', 'Pattern applied. Review and save the category.', 'success');
   });
+  
+  // AI Search functionality
+  const searchInput = document.getElementById('searchInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const searchResultsModal = document.getElementById('searchResultsModal');
+  const searchResultsList = document.getElementById('searchResultsList');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const searchScope = document.getElementById('searchScope');
+  
+  let currentSearchQuery = '';
+  let currentResults = [];
+  let showingCount = 3;
+  
+  // Search button click
+  searchBtn.addEventListener('click', () => {
+    const query = searchInput.value.trim();
+    if (query.length >= 3) {
+      performSearch(query);
+    } else {
+      showNotification('Search Query Too Short', 'Please enter at least 3 characters to search', 'error');
+    }
+  });
+  
+  // Enter key search
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const query = searchInput.value.trim();
+      if (query.length >= 3) {
+        performSearch(query);
+      } else {
+        showNotification('Search Query Too Short', 'Please enter at least 3 characters to search', 'error');
+      }
+    }
+  });
+  
+  // Load more button
+  loadMoreBtn.addEventListener('click', () => {
+    showingCount = Math.min(showingCount + 5, currentResults.length);
+    displaySearchResults(currentResults);
+  });
+  
+  async function performSearch(query) {
+    currentSearchQuery = query;
+    showingCount = 3; // Reset to show top 3
+    
+    // Open search results modal and show loading state
+    searchResultsModal.classList.add('active');
+    document.getElementById('searchResultsTitle').textContent = 'Search Results';
+    searchResultsList.innerHTML = '<div class="search-loading" style="text-align: center; padding: 40px; font-size: 16px;">🔍 AI searching your files...</div>';
+    loadMoreBtn.style.display = 'none';
+    
+    try {
+      const scope = searchScope.value;
+      const result = await ipcRenderer.invoke('ai:searchFiles', {
+        query: query,
+        scope: scope
+      });
+      
+      if (result.success) {
+        // Ensure results is always an array
+        currentResults = Array.isArray(result.results) ? result.results : [];
+        displaySearchResults(currentResults);
+      } else {
+        searchResultsList.innerHTML = `<div style="text-align: center; padding: 40px; color: #d32f2f;">❌ Search failed: ${result.error}</div>`;
+      }
+    } catch (error) {
+      searchResultsList.innerHTML = `<div style="text-align: center; padding: 40px; color: #d32f2f;">❌ Search error: ${error.message}</div>`;
+    }
+  }
+  
+  function displaySearchResults(results) {
+    // Ensure results is an array
+    if (!Array.isArray(results)) {
+      console.error('displaySearchResults called with non-array:', results);
+      results = [];
+    }
+    
+    if (results.length === 0) {
+      searchResultsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">No files found matching your search.</div>';
+      loadMoreBtn.style.display = 'none';
+      return;
+    }
+    
+    const resultsToShow = results.slice(0, showingCount);
+    
+    searchResultsList.innerHTML = resultsToShow.map((result, index) => `
+      <div class="search-result-item" data-file-path="${result.path}" data-result-index="${index}">
+        <div class="search-result-filename">${result.filename}</div>
+        <div class="search-result-path">${result.path}</div>
+        <div class="search-result-reason">${result.reason || 'AI matched this file to your search'}</div>
+      </div>
+    `).join('');
+    
+    // Add click listeners to each result item
+    const resultItems = searchResultsList.querySelectorAll('.search-result-item');
+    resultItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const filePath = item.getAttribute('data-file-path');
+        openFile(filePath);
+      });
+    });
+    
+    // Show load more button if there are more results
+    if (showingCount < results.length) {
+      loadMoreBtn.style.display = 'block';
+      loadMoreBtn.textContent = `Load More (${results.length - showingCount} remaining)`;
+    } else {
+      loadMoreBtn.style.display = 'none';
+    }
+  }
+  
+  async function openFile(filePath) {
+    try {
+      await ipcRenderer.invoke('file:open', filePath);
+      // Close the search modal after opening file
+      searchResultsModal.classList.remove('active');
+    } catch (error) {
+      showNotification('Error', `Could not open file: ${error.message}`, 'error');
+    }
+  }
 
   // Description suggestion modal handlers
   document.getElementById('keepOriginalBtn').addEventListener('click', async () => {
@@ -799,7 +960,7 @@ function showNotification(title, message, type = 'success') {
   
   // Update icon
   icon.className = `notification-icon ${type}`;
-  icon.innerHTML = type === 'success' ? '<span>✓</span>' : '<span>✗</span>';
+  icon.innerHTML = type === 'success' ? '✓' : '✗';
   
   // Show notification
   notification.classList.add('show');

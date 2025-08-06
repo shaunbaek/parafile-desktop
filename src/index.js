@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, globalShortcut, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, globalShortcut, Notification, shell } = require('electron');
 const path = require('node:path');
+const fs = require('fs');
 require('dotenv').config();
 
 // Services
@@ -8,6 +9,7 @@ const fileMonitor = require('./services/fileMonitor');
 const documentProcessor = require('./services/documentProcessor');
 const aiService = require('./services/aiService');
 const AutoUpdaterService = require('./services/autoUpdater');
+const textExtractor = require('./services/textExtractor');
 
 // Initialize auto-updater
 let autoUpdater = null;
@@ -328,6 +330,90 @@ app.on('window-all-closed', () => {
   // Do nothing - keep app running in tray
 });
 
+// Get file list for search based on scope
+async function getFileList(scope, watchedFolder) {
+  const fileList = [];
+  const supportedExtensions = ['.pdf', '.doc', '.docx'];
+  
+  try {
+    let searchPaths = [];
+    
+    if (scope === 'watched') {
+      if (!watchedFolder || !fs.existsSync(watchedFolder)) {
+        return [];
+      }
+      searchPaths = [watchedFolder];
+    } else {
+      // Computer-wide search - common document locations
+      const os = require('os');
+      const commonPaths = [
+        path.join(os.homedir(), 'Documents'),
+        path.join(os.homedir(), 'Downloads'),
+        path.join(os.homedir(), 'Desktop')
+      ];
+      
+      searchPaths = commonPaths.filter(p => fs.existsSync(p));
+    }
+    
+    for (const searchPath of searchPaths) {
+      await scanDirectory(searchPath, fileList, supportedExtensions, scope === 'computer' ? 2 : 10); // Limit depth for computer-wide
+    }
+    
+    return fileList;
+  } catch (error) {
+    console.error('Error getting file list:', error);
+    return [];
+  }
+}
+
+// Recursively scan directory for supported files
+async function scanDirectory(dirPath, fileList, extensions, maxDepth, currentDepth = 0) {
+  if (currentDepth > maxDepth) return;
+  
+  try {
+    const items = fs.readdirSync(dirPath);
+    
+    for (const item of items) {
+      const itemPath = path.join(dirPath, item);
+      const stats = fs.statSync(itemPath);
+      
+      if (stats.isDirectory()) {
+        // Skip hidden directories and node_modules
+        if (!item.startsWith('.') && item !== 'node_modules') {
+          await scanDirectory(itemPath, fileList, extensions, maxDepth, currentDepth + 1);
+        }
+      } else if (stats.isFile()) {
+        const ext = path.extname(item).toLowerCase();
+        if (extensions.includes(ext)) {
+          let content = '';
+          
+          try {
+            // Extract a small preview of the document content
+            if (ext === '.pdf') {
+              const result = await textExtractor.extractPDF(itemPath);
+              content = result.text ? result.text.substring(0, 500) : '';
+            } else if (ext === '.doc' || ext === '.docx') {
+              const result = await textExtractor.extractWord(itemPath);
+              content = result.text ? result.text.substring(0, 500) : '';
+            }
+          } catch (extractError) {
+            // If extraction fails, still include the file but without content
+            console.log(`Could not extract content from ${itemPath}:`, extractError.message);
+          }
+          
+          fileList.push({
+            filename: item,
+            path: itemPath,
+            content: content
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.log(`Could not scan directory ${dirPath}:`, error.message);
+  }
+}
+
 // Setup IPC handlers
 function setupIPCHandlers() {
   // Config management
@@ -470,6 +556,24 @@ function setupIPCHandlers() {
     }
   });
 
+  // AI category suggestion generation
+  ipcMain.handle('api:generateCategorySuggestion', async (event, prompt) => {
+    try {
+      const config = await configManager.load();
+      if (!config.openai_api_key) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      aiService.initialize(config.openai_api_key);
+      const result = await aiService.generateCategorySuggestion(prompt, config.expertise);
+      
+      return { success: true, suggestion: result };
+    } catch (error) {
+      console.error('Error generating category suggestion:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // AI description evaluation
   ipcMain.handle('api:evaluateDescription', async (event, variableName, description) => {
     try {
@@ -502,6 +606,43 @@ function setupIPCHandlers() {
       return { success: true, shortDescription };
     } catch (error) {
       console.error('Error generating short description:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // AI file search
+  ipcMain.handle('ai:searchFiles', async (event, data) => {
+    try {
+      const config = await configManager.load();
+      if (!config.openai_api_key) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      // Get file list based on scope
+      const fileList = await getFileList(data.scope, config.watched_folder);
+      
+      // Perform AI search
+      aiService.initialize(config.openai_api_key);
+      const searchData = {
+        query: data.query,
+        fileList: fileList
+      };
+      
+      const result = await aiService.searchFiles(searchData, config.expertise);
+      return result;
+    } catch (error) {
+      console.error('Error searching files:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Open file in system
+  ipcMain.handle('file:open', async (event, filePath) => {
+    try {
+      await shell.openPath(filePath);
+      return { success: true };
+    } catch (error) {
+      console.error('Error opening file:', error);
       return { success: false, error: error.message };
     }
   });

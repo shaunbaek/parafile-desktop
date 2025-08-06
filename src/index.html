@@ -18,6 +18,25 @@
       <div class="header">
         <h1>ParaFile</h1>
         <p>AI-powered document organization made simple</p>
+        
+        <!-- AI Search Bar -->
+        <div class="search-container">
+          <div class="search-wrapper">
+            <div class="search-scope">
+              <select id="searchScope" class="search-scope-select">
+                <option value="watched">Watched Folder</option>
+                <option value="computer">Computer Wide</option>
+              </select>
+            </div>
+            <div class="search-input-wrapper">
+              <input type="text" id="searchInput" class="search-input" placeholder="AI search your files... (e.g., 'invoice from last month', 'contract with ABC Corp')">
+              <button id="searchBtn" class="search-btn">
+                Search
+              </button>
+            </div>
+          </div>
+          
+        </div>
       </div>
 
       <!-- Main panel -->
@@ -29,7 +48,7 @@
           <div class="folder-selector">
             <input type="text" id="folderPath" class="folder-input" placeholder="Select a folder to monitor (includes all subdirectories)..." readonly>
             <button id="browseBtn" class="btn btn-primary">
-              <span>📂</span> Browse
+              Browse
             </button>
           </div>
           <p class="folder-help-text">
@@ -70,7 +89,7 @@
           
           <div class="monitor-controls">
             <button id="monitorBtn" class="btn btn-success">
-              <span>▶️</span> Start Monitoring
+              Start Monitoring
             </button>
             <div class="status-indicator">
               <div id="statusDot" class="status-dot"></div>
@@ -80,7 +99,7 @@
 
           <div style="margin-top: 20px;">
             <button id="settingsBtn" class="btn btn-secondary">
-              <span>⚙️</span> Settings
+              Settings
             </button>
           </div>
 
@@ -98,7 +117,7 @@
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <p style="margin: 0; color: #666; font-size: 14px;">View detailed processing results and correct categorization errors</p>
                 <button id="openLogBtn" class="btn btn-primary btn-small">
-                  <span>📋</span> Open Processing Log
+                  Open Processing Log
                 </button>
               </div>
             </div>
@@ -112,7 +131,7 @@
             <div class="list-header">
               <p>Define categories for document organization</p>
               <button id="addCategoryBtn" class="btn btn-primary btn-small">
-                <span>➕</span> Add Category
+                Add Category
               </button>
             </div>
             <div id="categoriesList" class="list-items">
@@ -130,7 +149,7 @@
             <div class="list-header">
               <p>Define variables for filename generation</p>
               <button id="addVariableBtn" class="btn btn-primary btn-small">
-                <span>➕</span> Add Variable
+                Add Variable
               </button>
             </div>
             <div id="variablesList" class="list-items">
@@ -154,8 +173,13 @@
         <form id="categoryForm">
           <div class="form-group">
             <label for="categoryName">Category Name</label>
-            <input type="text" id="categoryName" class="form-input" required 
-                   placeholder="e.g., Invoices, Contracts, Reports">
+            <div class="input-with-ai">
+              <input type="text" id="categoryName" class="form-input" required 
+                     placeholder="e.g., Invoices, Contracts, Reports">
+              <button type="button" id="categoryAISuggest" class="ai-suggest-btn" title="AI Suggest Category">
+                AI Suggest
+              </button>
+            </div>
           </div>
           
           <div class="form-group">
@@ -166,13 +190,8 @@
           
           <div class="form-group">
             <label for="namingPattern">Naming Pattern</label>
-            <div class="input-with-ai">
-              <textarea id="namingPattern" class="form-textarea pattern-input" required 
-                        placeholder="Example: {date}_{client_name}_{document_type}"></textarea>
-              <button type="button" id="patternAISuggest" class="ai-suggest-btn" title="AI Suggest Pattern">
-                <span>✨</span> AI Suggest
-              </button>
-            </div>
+            <textarea id="namingPattern" class="form-textarea" required 
+                      placeholder="Example: {date}_{client_name}_{document_type}"></textarea>
             <p class="variable-hint">Click variables below to insert them into your pattern</p>
             <div id="availableVariables" class="variable-list"></div>
           </div>
@@ -180,7 +199,7 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary">
-              <span>💾</span> Save Category
+              Save Category
             </button>
           </div>
         </form>
@@ -204,7 +223,7 @@
                      placeholder="e.g., date, client_name, invoice_number"
                      style="padding-right: 140px;">
               <button type="button" id="aiSuggestBtn" class="btn btn-secondary" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 8px 16px; font-size: 14px;">
-                <span>🤖</span> AI Suggest
+                AI Suggest
               </button>
             </div>
           </div>
@@ -218,7 +237,7 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary">
-              <span>💾</span> Save Variable
+              Save Variable
             </button>
           </div>
         </form>
@@ -248,7 +267,7 @@
 
           <div class="form-group">
             <button type="button" id="testApiKeyBtn" class="btn btn-secondary btn-small">
-              <span>🧪</span> Test Connection
+              Test Connection
             </button>
             <span id="apiKeyStatus" class="api-key-status"></span>
           </div>
@@ -282,7 +301,7 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary">
-              <span>💾</span> Save Settings
+              Save Settings
             </button>
           </div>
         </form>
@@ -316,10 +335,10 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary" id="generateSuggestionBtn">
-              <span>🤖</span> Generate Suggestion
+              Generate Suggestion
             </button>
             <button type="button" class="btn btn-success" id="useSuggestionBtn" style="display: none;">
-              <span>✓</span> Use This Suggestion
+              Use This Suggestion
             </button>
           </div>
         </form>
@@ -434,7 +453,7 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
           <button type="button" class="btn btn-primary" id="saveCorrectionBtn">
-            <span>💾</span> Save Correction
+            Save Correction
           </button>
         </div>
       </div>
@@ -525,6 +544,43 @@
       </div>
     </div>
     
+    <!-- AI Category Suggestion Modal -->
+    <div id="aiCategorySuggestionModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>AI Category Suggestion</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <form id="aiCategorySuggestionForm">
+          <div class="form-group">
+            <label for="categoryPrompt">What kind of category do you want to create?</label>
+            <textarea id="categoryPrompt" class="form-textarea" required 
+                      placeholder="Describe what types of documents you want to categorize. For example:&#10;&#10;• Financial documents like invoices and receipts&#10;• Legal contracts and agreements&#10;• Project reports and presentations&#10;• Medical records and test results&#10;&#10;Be as specific as possible about the document types!"
+                      style="min-height: 180px;"></textarea>
+          </div>
+          
+          <div class="form-group" id="categorySuggestionResult" style="display: none;">
+            <h4 style="margin-bottom: 10px; color: var(--primary);">AI Suggestion:</h4>
+            <div style="background: var(--tertiary); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+              <p style="margin-bottom: 8px;"><strong>Category Name:</strong> <span id="suggestedCategoryName" style="font-weight: bold; color: var(--primary);"></span></p>
+              <p style="margin-bottom: 0;"><strong>Description:</strong> <span id="suggestedCategoryDescription"></span></p>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="generateCategorySuggestionBtn">
+              Generate Suggestion
+            </button>
+            <button type="button" class="btn btn-success" id="useCategorySuggestionBtn" style="display: none;">
+              Use This Suggestion
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- AI Pattern Suggestion Modal -->
     <div id="aiPatternModal" class="modal">
       <div class="modal-content">
@@ -559,13 +615,30 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary" id="generatePatternBtn">
-              <span>🤖</span> Generate Pattern
+              Generate Pattern
             </button>
             <button type="button" class="btn btn-success" id="usePatternBtn" style="display: none;">
-              <span>✓</span> Use This Pattern
+              Use This Pattern
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Search Results Modal -->
+    <div id="searchResultsModal" class="modal">
+      <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+          <h2 id="searchResultsTitle">Search Results</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div id="searchResultsList" class="search-results-list"></div>
+          <button id="loadMoreBtn" class="btn btn-secondary" style="display: none; width: 100%; margin-top: 20px;">
+            Load More Results
+          </button>
+        </div>
       </div>
     </div>
 
