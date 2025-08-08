@@ -122,13 +122,13 @@ function renderLogTable() {
     const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
     const statusBadge = log.corrected 
-      ? '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Corrected</span>'
+      ? '<span style="background: #448649; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Corrected</span>'
       : log.success 
-        ? '<span style="background: #17a2b8; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Processed</span>'
-        : '<span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Failed</span>';
+        ? '<span style="background: #448649; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Processed</span>'
+        : '<span style="background: #c45050; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Failed</span>';
     
     const categoryDisplay = log.corrected && log.corrections && log.corrections.length > 0
-      ? `<span style="color: #28a745; font-weight: 500;">${log.category}</span> <small style="color: #666;">(corrected)</small>`
+      ? `<span style="color: #448649; font-weight: 500;">${log.category}</span> <small style="color: #666;">(corrected)</small>`
       : log.category;
     
     return `

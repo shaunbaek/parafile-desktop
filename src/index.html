@@ -217,12 +217,11 @@
         <form id="variableForm">
           <div class="form-group">
             <label for="variableName">Variable Name</label>
-            <div style="position: relative;">
+            <div class="input-with-ai">
               <input type="text" id="variableName" class="form-input" required 
                      pattern="[a-z_]+" title="Use lowercase letters and underscores only"
-                     placeholder="e.g., date, client_name, invoice_number"
-                     style="padding-right: 140px;">
-              <button type="button" id="aiSuggestBtn" class="btn btn-secondary" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 8px 16px; font-size: 14px;">
+                     placeholder="e.g., date, client_name, invoice_number">
+              <button type="button" id="aiSuggestBtn" class="ai-suggest-btn" title="AI Suggest Variable">
                 AI Suggest
               </button>
             </div>
