@@ -19,23 +19,13 @@
         <h1>ParaFile</h1>
         <p>AI-powered document organization made simple</p>
         
-        <!-- AI Search Bar -->
-        <div class="search-container">
-          <div class="search-wrapper">
-            <div class="search-scope">
-              <select id="searchScope" class="search-scope-select">
-                <option value="watched">Watched Folder</option>
-                <option value="computer">Computer Wide</option>
-              </select>
-            </div>
-            <div class="search-input-wrapper">
-              <input type="text" id="searchInput" class="search-input" placeholder="AI search your files... (e.g., 'invoice from last month', 'contract with ABC Corp')">
-              <button id="searchBtn" class="search-btn">
-                Search
-              </button>
-            </div>
-          </div>
-          
+        <!-- Search Trigger Button -->
+        <div class="search-trigger-container">
+          <button id="searchTriggerBtn" class="search-trigger-btn">
+            <span class="search-icon">🔍</span>
+            <span class="search-text">Search your files...</span>
+            <span class="search-shortcut">⌘K</span>
+          </button>
         </div>
       </div>
 
@@ -233,6 +223,22 @@
                       placeholder="Tell the AI what information to extract for this variable. Be specific!"></textarea>
           </div>
           
+          <div class="form-group">
+            <label for="variableFormatting">Text Formatting</label>
+            <select id="variableFormatting" class="form-input">
+              <option value="none">No formatting</option>
+              <option value="uppercase">UPPERCASE</option>
+              <option value="lowercase">lowercase</option>
+              <option value="title">Title Case</option>
+              <option value="sentence">Sentence case</option>
+              <option value="kebab">kebab-case</option>
+              <option value="snake">snake_case</option>
+              <option value="camel">camelCase</option>
+              <option value="pascal">PascalCase</option>
+            </select>
+            <p class="form-hint">Choose how this variable's text should be formatted in filenames</p>
+          </div>
+          
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn btn-primary">
@@ -406,6 +412,38 @@
           <div class="form-group">
             <label style="font-weight: bold; color: var(--primary);">Full Description</label>
             <div id="detailsFullDescription" style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px; line-height: 1.6;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Details Modal -->
+    <div id="categoryDetailsModal" class="modal">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>Category Details</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Category Name</label>
+            <p id="detailsCategoryName" style="font-weight: bold; color: var(--primary); font-size: 18px; background: var(--tertiary); padding: 10px; border-radius: 8px; margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Short Description</label>
+            <p id="detailsCategoryShortDescription" style="margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Full Description</label>
+            <div id="detailsCategoryDescription" style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px; line-height: 1.6;"></div>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Naming Pattern</label>
+            <p id="detailsCategoryPattern" style="font-family: monospace; background: var(--tertiary); padding: 10px; border-radius: 8px; margin-top: 5px;"></p>
           </div>
         </div>
       </div>
@@ -649,6 +687,55 @@
       <div class="notification-content">
         <h4 id="notificationTitle">Document Processed</h4>
         <p id="notificationMessage">File has been organized successfully</p>
+      </div>
+    </div>
+
+    <!-- Search Popup Modal -->
+    <div id="searchModal" class="search-modal">
+      <div class="search-modal-backdrop"></div>
+      <div class="search-modal-content">
+        <div class="search-modal-header">
+          <div class="search-modal-input-wrapper">
+            <span class="search-modal-icon">🔍</span>
+            <input type="text" id="searchModalInput" class="search-modal-input" placeholder="AI search your files... (e.g., 'invoice from last month', 'contract with ABC Corp')" autofocus>
+            <div class="search-modal-scope">
+              <select id="searchModalScope" class="search-modal-scope-select">
+                <option value="watched">Watched Folder</option>
+                <option value="computer">Computer Wide</option>
+              </select>
+            </div>
+          </div>
+          <button class="search-modal-close" id="searchModalClose">✕</button>
+        </div>
+        
+        <div class="search-modal-body">
+          <div id="searchModalResults" class="search-modal-results">
+            <div class="search-modal-empty">
+              <div class="search-modal-empty-icon">🔍</div>
+              <p>Start typing to search your documents</p>
+              <div class="search-modal-shortcuts">
+                <div class="search-shortcut-item">
+                  <kbd>↵</kbd>
+                  <span>to search</span>
+                </div>
+                <div class="search-shortcut-item">
+                  <kbd>↑↓</kbd>
+                  <span>to navigate</span>
+                </div>
+                <div class="search-shortcut-item">
+                  <kbd>esc</kbd>
+                  <span>to close</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="search-modal-footer">
+          <div class="search-modal-tips">
+            <span>💡 Try: "contracts from 2024", "invoices over $1000", "documents by John Smith"</span>
+          </div>
+        </div>
       </div>
     </div>
 

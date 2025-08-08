@@ -2,7 +2,130 @@
 
 All notable changes to ParaFile Desktop will be documented in this file.
 
-## [Unreleased] - 2025-08-04
+## [Unreleased] - 2025-08-08
+
+### Added
+
+#### AI Button Consistency
+- **Unified AI Suggest Buttons**: Standardized all AI assistance buttons across the application
+  - Variables AI Suggest button now matches Categories AI Suggest button styling
+  - Both use the `ai-suggest-btn` class with consistent green gradient background
+  - Unified hover effects and transitions for professional appearance
+
+#### Status Badge Color Improvements
+- **Theme-Consistent Status Colors**: Updated processing log status badges to match application theme
+  - "Processed" status: Green (#448649) matching primary theme color
+  - "Failed" status: Red (#c45050) matching error theme color
+  - "Corrected" status: Green (#448649) for consistency
+  - Removed generic Bootstrap colors in favor of branded theme colors
+
+#### Search Popup Modal System
+- **Modern Search Interface**: Complete replacement of inline search bar with popup modal
+  - **Keyboard Shortcut Access**: Ctrl+K (Windows/Linux) or ⌘K (Mac) to open search from anywhere
+  - **Glassmorphic Design**: Modern modal with backdrop blur and elegant animations
+  - **Search Trigger Button**: Clean trigger button in header showing search hint and shortcut
+  - **Platform-Aware Shortcuts**: Dynamically displays correct keyboard shortcut based on OS
+  - **Escape to Close**: ESC key or backdrop click to dismiss modal instantly
+  - **Focused Search Experience**: Modal prevents background interaction for distraction-free search
+
+- **Enhanced Search Results Display**: Complete redesign of search results within modal
+  - **In-Modal Results**: Search results display directly within search modal (no separate window)
+  - **Visual Score Indicators**: Color-coded relevance scores with three tiers:
+    - High relevance (≥70%): Green theme color indicating excellent matches
+    - Medium relevance (40-69%): Amber/yellow indicating moderate matches  
+    - Low relevance (<40%): Red indicating weak matches
+  - **Actionable Results**: Each result includes "Open File" and "Show in Folder" buttons
+  - **Rich Result Information**: Shows filename, path, relevance score, and AI reasoning
+  - **Loading States**: Elegant loading animation during search operations
+  - **Error Handling**: Clear error messages and empty state handling
+
+- **Search Score Accuracy Fix**: Fixed search relevance scores showing 0% for all results
+  - **Score Field Mapping**: Added automatic conversion from AI service `relevanceScore` to frontend `score`
+  - **Proper Percentage Display**: Search results now show actual relevance percentages
+  - **Visual Score Feedback**: Color-coded badges help users quickly identify best matches
+
+#### Modern Search Bar Design
+- **Glassmorphic Search Interface**: Completely redesigned search bar with modern aesthetics
+  - Semi-transparent background with blur effects for sophisticated appearance
+  - Unified container design combining scope selector and search input
+  - Adaptive styling that transforms elegantly when focused (transparent to solid white)
+  - Enhanced hover states with subtle shadow effects
+  - Minimalist button design that becomes prominent only when active
+  - Improved visual hierarchy and reduced visual noise
+
+#### Variable Text Formatting System
+- **Advanced Text Formatting Options**: Comprehensive formatting system for extracted variables
+  - **UPPERCASE**: Converts text to all caps
+  - **lowercase**: Converts text to all lowercase  
+  - **Title Case**: Capitalizes first letter of each word
+  - **Sentence case**: Capitalizes only the first letter
+  - **kebab-case**: Lowercase with hyphens (removes special chars)
+  - **snake_case**: Lowercase with underscores (removes special chars)
+  - **camelCase**: First word lowercase, rest capitalized
+  - **PascalCase**: All words capitalized, no spaces
+  - Formatting dropdown in variable modal with clear examples
+  - Applied during document processing before filename generation
+  - Visual indicators in variable list showing applied formatting
+
+#### Categories Short Descriptions & Details View
+- **AI-Generated Category Summaries**: Added intelligent short descriptions for categories
+  - Auto-generated concise summaries using AI when saving categories
+  - Short descriptions displayed in category list for quick overview
+  - Loading modal shows progress during AI description generation
+- **Clickable Category Details**: Interactive category management similar to variables
+  - Category items now clickable with hover effects
+  - Category Details modal showing name, descriptions, and naming pattern
+  - Consistent design language with Variable Details modal
+  - Full category information organized in clean, readable format
+
+#### Enhanced Processing Log System
+- **Comprehensive View/Edit Interface**: Complete redesign of processing log interaction
+  - **View Mode**: Detailed read-only view of processing results
+    - Shows original name, ParaFiled name, category, AI reasoning, status, and timestamp
+    - Displays corrections history with timestamps and feedback
+    - Visual status indicators with theme-consistent colors
+  - **Edit Mode**: Advanced correction system with feedback collection
+    - Edit generated filename with mandatory explanation
+    - Change category with required feedback reasoning
+    - Separate feedback fields for name and category changes
+    - Validation ensures feedback is provided for all changes
+  - **Corrections History**: Visual timeline of all corrections made
+    - Shows old vs new values for both names and categories
+    - Includes user feedback and timestamps for each correction
+    - Color-coded corrections with clear visual hierarchy
+
+#### AI Feedback Learning System
+- **Intelligent Pattern Recognition**: Self-improving AI system using user corrections
+  - **Feedback Database**: Stores correction patterns in `feedback-learning.json`
+  - **Pattern Analysis**: Identifies frequently corrected categories and names
+  - **Learning Integration**: AI prompts include recent corrections as context
+  - **Confidence Adjustment**: Lowers confidence for categories often corrected
+  - **Real-time Learning**: Each correction immediately influences future categorizations
+- **Historical Context in AI Decisions**: AI receives correction examples during categorization
+  - Recent corrections (last 10) included in AI prompts
+  - Common patterns (2+ occurrences) highlighted to AI
+  - Warning notes when choosing frequently-corrected categories
+  - Adaptive learning that improves accuracy over time
+
+### Enhanced
+
+#### User Interface Polish
+- **Removed Emoji Icons**: Cleaned up button design by removing emoji icons from Edit and Delete buttons
+  - Edit and Delete buttons now use text-only labels
+  - More professional and consistent appearance
+  - Better accessibility and cross-platform compatibility
+
+#### Variable Management
+- **Enhanced Variable Display**: Variables now show formatting information in the list
+  - Formatting type displayed next to variable names (e.g., "uppercase", "kebab-case")
+  - Visual indicators help users understand how variables will be formatted
+  - Editing variables preserves and displays current formatting settings
+
+#### Configuration System
+- **Extended Variable Schema**: Enhanced variable configuration with formatting support
+  - Added `formatting` field to variable objects with default value "none"
+  - Automatic migration of existing variables to include formatting
+  - Backward compatibility maintained for existing configurations
 
 ### Fixed
 - **Missing Dependency**: Added `electron-log@^5.4.2` to dependencies to fix auto-updater service initialization error
@@ -13,6 +136,195 @@ All notable changes to ParaFile Desktop will be documented in this file.
   - Removed invalid `additionalDMGOptions` property that was causing `Error: data has additional properties`
   - DMG creation now works correctly with `npm run make` command
   - Maintained essential DMG properties: format, overwrite, and name
+
+### Technical Implementation
+
+#### Backend Components
+- **src/services/aiService.js**:
+  - **Search Score Fix**:
+    - Added score field mapping in `searchFiles()` method (lines 411-420)
+    - Automatic conversion from AI `relevanceScore` to frontend `score` field
+    - Ensures proper percentage display in search results (95%, 15%, etc.)
+    - Maintains backward compatibility with existing score formats
+
+- **src/config/configManager.js**:
+  - Added `feedbackPath` for storing learning data in `feedback-learning.json` (line 9)
+  - Added `shortDescription` field to default category configuration (line 19)
+  - Added `formatting` field to default variable configuration (line 26)
+  - Enhanced `validateAndRepair()` to migrate existing variables with formatting defaults (lines 91-95)
+  - **Feedback Learning System**:
+    - `loadFeedback()`, `saveFeedback()`, `storeFeedback()` methods (lines 303-375)
+    - `getRelevantFeedback()` for AI context enhancement (lines 378-425)
+    - `analyzeFeedbackPatterns()` for correction pattern analysis (lines 428-474)
+  - **Enhanced Correction Storage**:
+    - Updated `addLogCorrection()` to handle separate name and category feedback (lines 244-296)
+    - Stores detailed correction history with timestamps and user feedback
+    - Automatic feedback pattern recognition and storage
+
+- **src/services/documentProcessor.js**:
+  - **Text Formatting System**:
+    - Added `applyFormatting()` method supporting 8 formatting options (lines 10-39)
+    - Added `extractVariablesFromPattern()` and `applyNamingPattern()` helpers (lines 41-52)
+  - **Enhanced Document Processing**:
+    - Integrated feedback retrieval for AI improvement (lines 88-93)
+    - Updated categorization to include feedback context (lines 95-100)
+    - Enhanced filename generation with formatting application (lines 108-143)
+    - Individual variable formatting applied before pattern substitution
+
+- **src/services/aiService.js**:
+  - **Feedback-Aware Categorization**:
+    - Enhanced `categorizeDocument()` to accept feedback parameter (line 20)
+    - Added feedback context integration in AI prompts (lines 33-50)
+    - Implemented confidence adjustment based on correction patterns (lines 75-83)
+    - AI receives recent corrections and common patterns as learning context
+
+#### Frontend Components
+- **src/index.html**:
+  - **Search Popup Modal Structure**:
+    - Added search trigger button in header (lines 22-29) replacing old search bar
+    - Comprehensive search modal HTML with glassmorphic design (lines 693-740)
+    - Search input with scope selector and close button
+    - Results container with loading, error, and empty states
+    - Platform-aware keyboard shortcut display (⌘K vs Ctrl+K)
+  - **Variable Formatting UI**:
+    - Added text formatting dropdown to variable modal (lines 236-250)
+    - 8 formatting options with clear descriptions and examples
+  - **Category Details Modal**:
+    - Added comprehensive category details modal (lines 430-460)
+    - Shows category name, descriptions, and naming pattern
+    - Consistent design with variable details modal
+  - **Enhanced Processing Log Modal**:
+    - Completely redesigned log interaction modal (lines 69-177)
+    - Separate view and edit modes with mode switching
+    - Detailed correction history display
+    - Feedback collection fields for both name and category changes
+
+- **src/renderer.js**:
+  - **Variable Formatting**:
+    - Updated variable form submission to include formatting (line 459)
+    - Enhanced variable display to show formatting indicators (lines 306-307)
+    - Updated variable modal to load/save formatting settings (line 363)
+  - **Category Management**:
+    - Enhanced category rendering with short descriptions and clickability (lines 274-275)
+    - Added `showCategoryDetails()` function for modal display (lines 959-971)
+    - Integrated AI short description generation in category saving (lines 451-456)
+  - **Search Popup Modal Implementation**:
+    - Added global keyboard shortcut handler (Ctrl+K/Cmd+K) with platform detection (lines 739-750)
+    - Implemented `showSearchModal()` and `hideSearchModal()` functions (lines 697-736)
+    - Added `performSearchInModal()` for in-modal search execution (lines 695-738)
+    - Enhanced `displaySearchResults()` with color-coded score indicators (lines 741-780)
+    - Integrated file action functions `openFile()` and `showFileLocation()` (lines 782-795)
+    - Added `updateSearchShortcut()` for platform-aware shortcut display (lines 17-23)
+
+- **src/processing-log-renderer.js**:
+  - **Complete Log Interface Redesign**:
+    - Replaced `showCorrectionModal()` with `showLogDetails()` (lines 163-175)
+    - Added `showViewMode()` and `showEditMode()` functions (lines 177-265)
+    - Enhanced correction handling with separate name/category feedback (lines 89-156)
+    - Integrated correction history display with visual timeline
+    - Real-time UI updates after corrections
+
+#### Styling Enhancements
+- **src/index.css**:
+  - **Search Popup Modal Styling**:
+    - Added complete search modal CSS with glassmorphic design (lines 1135-1353)
+    - Search modal backdrop with blur effects and smooth transitions
+    - Modern input styling with adaptive focus states and icons
+    - Scope selector and close button with consistent design language
+    - Search results styling with hover effects and visual hierarchy
+    - Color-coded score indicators (high-score, medium-score, low-score) (lines 1439-1455)
+    - Result item styling with actions buttons and responsive layout (lines 1396-1493)
+    - Loading, error, and empty state styling for comprehensive UX
+  - **Search Trigger Button**:
+    - Added search trigger button styling to replace old search bar
+    - Platform-aware shortcut display with proper typography
+    - Hover effects and focus states matching application theme
+  - **Status Badge Updates**:
+    - Updated processing status colors to match theme (lines 125-128)
+    - Consistent color usage throughout application
+
+#### File Structure Additions
+- **feedback-learning.json**: New file for storing correction patterns and learning data
+  - Structure: `{ categoryCorrections: [], nameCorrections: [], patterns: {} }`
+  - Automatic pattern recognition and frequency tracking
+  - Used for AI context enhancement and confidence adjustment
+
+### User Experience Improvements
+
+#### Visual Design & Consistency
+1. **Unified Design Language**: Consistent styling across all AI assistance buttons and status indicators
+2. **Theme Integration**: All colors now follow the established green/red theme palette
+3. **Professional Polish**: Removed casual emoji icons for a more enterprise-ready appearance
+4. **Modern Aesthetics**: Glassmorphic search bar provides cutting-edge visual appeal
+
+#### Advanced Text Processing
+1. **Flexible Filename Formatting**: 8 different text formatting options for precise filename control
+2. **Visual Format Indicators**: Users can see formatting applied to variables at a glance
+3. **Smart Text Conversion**: Automatic character cleanup for web-safe filenames (kebab, snake cases)
+4. **Professional Naming**: Support for various naming conventions (camelCase, PascalCase, etc.)
+
+#### Enhanced Information Architecture
+1. **Detailed Category Views**: Click any category to see full information including naming patterns
+2. **AI-Generated Summaries**: Automatic short descriptions make category scanning effortless
+3. **Comprehensive Processing Details**: Full visibility into AI decision-making process
+4. **Historical Context**: Complete correction history with reasoning for each change
+
+#### Intelligent Learning System
+1. **Self-Improving Accuracy**: AI gets smarter with each correction, reducing future errors
+2. **Pattern Recognition**: System identifies and warns about frequently corrected categories
+3. **Contextual Learning**: Recent corrections influence AI decisions in real-time
+4. **Confidence Transparency**: Users see when AI is less confident based on past corrections
+
+#### Advanced Correction Workflow
+1. **View-First Approach**: Click any log entry to see detailed processing information
+2. **Structured Feedback**: Separate feedback fields for filename and category corrections
+3. **Mandatory Explanations**: Ensures quality feedback for AI learning by requiring explanations
+4. **Visual Correction History**: Timeline view of all corrections with clear before/after comparisons
+5. **Instant Application**: Corrections immediately influence future processing decisions
+
+#### Search Experience Enhancement
+1. **Modern Search Interface**: Professional popup modal replaces awkward inline search bar
+2. **Universal Access**: Ctrl+K/⌘K keyboard shortcut works from anywhere in the application
+3. **Visual Feedback**: Color-coded relevance scores help identify best matches instantly
+4. **Distraction-Free Search**: Modal overlay prevents background interaction during search
+5. **Platform Consistency**: Native keyboard shortcut conventions (Mac: ⌘K, PC: Ctrl+K)
+6. **Immediate Actions**: Direct file opening and folder location from search results
+7. **Smart Result Display**: AI reasoning shows why each file matched the search query
+8. **Comprehensive States**: Loading, error, and empty states provide clear user feedback
+
+### Workflow Changes
+
+#### Search Workflow
+1. **Quick Access**: Press Ctrl+K (or ⌘K on Mac) from anywhere in the application
+2. **Search Input**: Type natural language queries (e.g., "invoice from last month", "contract with ABC Corp")
+3. **Instant Results**: AI-powered search displays relevant documents with explanations
+4. **Score-Based Selection**: Color-coded scores help identify most relevant matches
+5. **Direct Actions**: Open files or show in folder directly from search results
+6. **Easy Dismissal**: ESC key or backdrop click to return to main interface
+
+#### Variable Creation Flow
+1. **Format Selection**: Users choose text formatting during variable creation
+2. **Visual Preview**: Formatting hints show expected output format
+3. **Automatic Application**: Formatting applied automatically during document processing
+
+#### Category Management Flow  
+1. **AI Summary Generation**: Short descriptions generated automatically when saving categories
+2. **One-Click Details**: Click any category to view complete information
+3. **Consistent Experience**: Same interaction pattern as variables for familiarity
+
+#### Processing Log Interaction
+1. **View → Edit Pattern**: Click to view details, then click Edit if corrections needed
+2. **Structured Correction**: Separate fields for name and category changes with required feedback
+3. **Immediate Learning**: Corrections instantly improve future AI decisions
+4. **Visual Feedback**: Clear indication of corrections and their impact
+
+#### AI Learning Cycle
+1. **Document Processing**: AI uses accumulated learning for better initial accuracy
+2. **User Review**: Processing log shows AI reasoning and confidence levels  
+3. **Feedback Collection**: Users provide structured feedback on incorrect decisions
+4. **Pattern Analysis**: System identifies recurring correction patterns
+5. **Knowledge Integration**: Future processing incorporates learned patterns
+6. **Continuous Improvement**: Each correction makes the system more accurate
 
 ### Documentation Issues Identified
 - **Environment Setup Inconsistency**: CLAUDE.md references `.env.example` file that doesn't exist

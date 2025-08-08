@@ -6,6 +6,7 @@ class ConfigManager {
   constructor() {
     this.configPath = path.join(app.getPath('userData'), 'config.json');
     this.logPath = path.join(app.getPath('userData'), 'processing-log.json');
+    this.feedbackPath = path.join(app.getPath('userData'), 'feedback-learning.json');
     this.defaultConfig = {
       watched_folder: '',
       enable_organization: true,
@@ -16,13 +17,15 @@ class ConfigManager {
         {
           name: 'General',
           description: 'Default category for uncategorized documents',
+          shortDescription: 'Default category',
           naming_pattern: '{original_name}'
         }
       ],
       variables: [
         {
           name: 'original_name',
-          description: 'The original filename without extension'
+          description: 'The original filename without extension',
+          formatting: 'none'
         }
       ]
     };
@@ -86,6 +89,12 @@ class ConfigManager {
     repaired.variables = repaired.variables.filter(v => 
       v && v.name && v.description
     );
+
+    // Add default formatting to variables that don't have it
+    repaired.variables = repaired.variables.map(v => ({
+      ...v,
+      formatting: v.formatting || 'none'
+    }));
 
     return repaired;
   }
@@ -242,22 +251,226 @@ class ConfigManager {
         logs[index].corrections = [];
       }
       
-      logs[index].corrections.push({
-        timestamp: new Date().toISOString(),
-        oldCategory: logs[index].category,
-        newCategory: correction.newCategory,
-        feedback: correction.feedback,
+      // Create correction entry with the new structure
+      const correctionEntry = {
+        timestamp: correction.timestamp || new Date().toISOString(),
         user: 'user' // Could be extended for multi-user scenarios
-      });
+      };
       
+      // Handle name correction
+      if (correction.newName !== undefined) {
+        correctionEntry.oldName = logs[index].parafileName;
+        correctionEntry.newName = correction.newName;
+        correctionEntry.nameFeedback = correction.nameFeedback;
+        logs[index].parafileName = correction.newName; // Update the displayed name
+      }
+      
+      // Handle category correction
+      if (correction.newCategory !== undefined) {
+        correctionEntry.oldCategory = logs[index].category;
+        correctionEntry.newCategory = correction.newCategory;
+        correctionEntry.categoryFeedback = correction.categoryFeedback;
+        logs[index].category = correction.newCategory; // Update the displayed category
+      }
+      
+      logs[index].corrections.push(correctionEntry);
       logs[index].corrected = true;
-      logs[index].category = correction.newCategory; // Update the display category
       
       await this.saveLog(logs);
+      
+      // Store feedback for model retraining
+      if (correction.nameFeedback || correction.categoryFeedback) {
+        await this.storeFeedback({
+          documentId: id,
+          originalName: logs[index].originalName,
+          originalCategory: correctionEntry.oldCategory,
+          originalParafileName: correctionEntry.oldName,
+          newName: correction.newName,
+          nameFeedback: correction.nameFeedback,
+          newCategory: correction.newCategory,
+          categoryFeedback: correction.categoryFeedback,
+          reasoning: logs[index].reasoning,
+          timestamp: correctionEntry.timestamp
+        });
+      }
+      
       return logs[index];
     }
     
     return null;
+  }
+
+  // Feedback Learning System
+  async loadFeedback() {
+    try {
+      const data = await fs.readFile(this.feedbackPath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return {
+          categoryCorrections: [],
+          nameCorrections: [],
+          patterns: {}
+        };
+      }
+      console.error('Error loading feedback:', error);
+      return {
+        categoryCorrections: [],
+        nameCorrections: [],
+        patterns: {}
+      };
+    }
+  }
+
+  async saveFeedback(feedback) {
+    try {
+      await fs.writeFile(this.feedbackPath, JSON.stringify(feedback, null, 2));
+      return true;
+    } catch (error) {
+      console.error('Error saving feedback:', error);
+      return false;
+    }
+  }
+
+  async storeFeedback(feedbackData) {
+    const feedback = await this.loadFeedback();
+    
+    // Store category corrections
+    if (feedbackData.categoryFeedback) {
+      feedback.categoryCorrections.push({
+        originalCategory: feedbackData.originalCategory,
+        newCategory: feedbackData.newCategory,
+        feedback: feedbackData.categoryFeedback,
+        reasoning: feedbackData.reasoning,
+        documentName: feedbackData.originalName,
+        timestamp: feedbackData.timestamp
+      });
+      
+      // Update pattern recognition
+      const patternKey = `${feedbackData.originalCategory}_to_${feedbackData.newCategory}`;
+      if (!feedback.patterns[patternKey]) {
+        feedback.patterns[patternKey] = {
+          count: 0,
+          examples: [],
+          commonFeedback: []
+        };
+      }
+      feedback.patterns[patternKey].count++;
+      feedback.patterns[patternKey].examples.push(feedbackData.originalName);
+      feedback.patterns[patternKey].commonFeedback.push(feedbackData.categoryFeedback);
+    }
+    
+    // Store name corrections
+    if (feedbackData.nameFeedback) {
+      feedback.nameCorrections.push({
+        originalName: feedbackData.originalParafileName,
+        newName: feedbackData.newName,
+        feedback: feedbackData.nameFeedback,
+        documentName: feedbackData.originalName,
+        timestamp: feedbackData.timestamp
+      });
+    }
+    
+    await this.saveFeedback(feedback);
+    return feedback;
+  }
+
+  // Get relevant feedback for AI context
+  async getRelevantFeedback(documentText, currentCategory) {
+    const feedback = await this.loadFeedback();
+    const relevantFeedback = {
+      categoryPatterns: [],
+      namePatterns: [],
+      suggestions: []
+    };
+    
+    // Find patterns that might apply
+    for (const [pattern, data] of Object.entries(feedback.patterns)) {
+      if (data.count >= 2) { // Only consider patterns that occurred at least twice
+        const [fromCat, toCat] = pattern.split('_to_');
+        if (fromCat === currentCategory) {
+          relevantFeedback.categoryPatterns.push({
+            from: fromCat,
+            to: toCat,
+            occurrences: data.count,
+            reason: data.commonFeedback[0] // Most common feedback
+          });
+        }
+      }
+    }
+    
+    // Get recent corrections (last 10)
+    const recentCategoryCorrections = feedback.categoryCorrections
+      .slice(-10)
+      .map(c => ({
+        was: c.originalCategory,
+        correctedTo: c.newCategory,
+        because: c.feedback
+      }));
+    
+    const recentNameCorrections = feedback.nameCorrections
+      .slice(-5)
+      .map(n => ({
+        was: n.originalName,
+        correctedTo: n.newName,
+        because: n.feedback
+      }));
+    
+    relevantFeedback.recentCorrections = {
+      categories: recentCategoryCorrections,
+      names: recentNameCorrections
+    };
+    
+    return relevantFeedback;
+  }
+
+  // Analyze feedback patterns for insights
+  async analyzeFeedbackPatterns() {
+    const feedback = await this.loadFeedback();
+    const analysis = {
+      mostCorrectedCategories: {},
+      commonMistakes: [],
+      improvementSuggestions: []
+    };
+    
+    // Count category corrections
+    feedback.categoryCorrections.forEach(correction => {
+      const key = correction.originalCategory;
+      if (!analysis.mostCorrectedCategories[key]) {
+        analysis.mostCorrectedCategories[key] = {
+          count: 0,
+          correctedTo: {}
+        };
+      }
+      analysis.mostCorrectedCategories[key].count++;
+      
+      if (!analysis.mostCorrectedCategories[key].correctedTo[correction.newCategory]) {
+        analysis.mostCorrectedCategories[key].correctedTo[correction.newCategory] = 0;
+      }
+      analysis.mostCorrectedCategories[key].correctedTo[correction.newCategory]++;
+    });
+    
+    // Identify common mistakes
+    for (const [pattern, data] of Object.entries(feedback.patterns)) {
+      if (data.count >= 3) {
+        const [from, to] = pattern.split('_to_');
+        analysis.commonMistakes.push({
+          pattern: `Documents categorized as "${from}" should often be "${to}"`,
+          frequency: data.count,
+          examples: data.examples.slice(0, 3)
+        });
+      }
+    }
+    
+    // Generate improvement suggestions
+    if (analysis.commonMistakes.length > 0) {
+      analysis.improvementSuggestions.push(
+        'Consider updating category descriptions to be more specific',
+        'Review the most commonly corrected categories for potential overlap'
+      );
+    }
+    
+    return analysis;
   }
 }
 

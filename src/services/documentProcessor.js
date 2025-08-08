@@ -6,6 +6,52 @@ const errorHandler = require('../utils/errorHandler');
 const configManager = require('../config/configManager');
 
 class DocumentProcessor {
+  // Apply formatting to a text value based on the specified format
+  applyFormatting(text, format) {
+    if (!text || !format || format === 'none') return text;
+    
+    switch (format) {
+      case 'uppercase':
+        return text.toUpperCase();
+      case 'lowercase':
+        return text.toLowerCase();
+      case 'title':
+        return text.replace(/\w\S*/g, txt => 
+          txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+        );
+      case 'sentence':
+        return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+      case 'kebab':
+        return text.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      case 'snake':
+        return text.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      case 'camel':
+        return text.replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) => 
+          index === 0 ? word.toLowerCase() : word.toUpperCase()
+        ).replace(/\s+/g, '');
+      case 'pascal':
+        return text.replace(/(?:^\w|[A-Z]|\b\w)/g, word => 
+          word.toUpperCase()
+        ).replace(/\s+/g, '');
+      default:
+        return text;
+    }
+  }
+
+  extractVariablesFromPattern(pattern) {
+    const matches = pattern.match(/\{([^}]+)\}/g);
+    if (!matches) return [];
+    return matches.map(match => match.slice(1, -1));
+  }
+
+  applyNamingPattern(pattern, values) {
+    let result = pattern;
+    for (const [key, value] of Object.entries(values)) {
+      result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+    }
+    return result;
+  }
+
   async processDocument(fileInfo, config) {
     const startTime = Date.now();
     const result = {
@@ -39,9 +85,16 @@ class DocumentProcessor {
         throw new Error('No meaningful text extracted from document');
       }
 
-      // Categorize document with AI
+      // Get feedback for AI improvement
+      const feedback = await errorHandler.safeExecute(
+        () => configManager.getRelevantFeedback(extractedData.text, 'General'),
+        `Feedback retrieval for ${result.fileName}`,
+        null
+      );
+
+      // Categorize document with AI (including feedback)
       const categorization = await errorHandler.safeExecute(
-        () => aiService.categorizeDocument(extractedData.text, config.categories, config.expertise),
+        () => aiService.categorizeDocument(extractedData.text, config.categories, config.expertise, feedback),
         `AI categorization for ${result.fileName}`,
         { category: 'General', reasoning: 'Fallback due to AI error', confidence: 0 }
       );
@@ -74,13 +127,42 @@ class DocumentProcessor {
         // Simple pattern with only original_name
         finalName = originalNameWithoutExt;
       } else {
-        const generatedName = await errorHandler.safeExecute(
-          () => aiService.generateFilename(category.naming_pattern, config.variables, extractedData.text),
-          `Filename generation for ${result.fileName}`,
-          category.naming_pattern
-        );
+        // Extract variables with formatting
+        const variableValues = {};
+        const requiredVariables = this.extractVariablesFromPattern(category.naming_pattern);
         
-        finalName = generatedName.replace('{original_name}', originalNameWithoutExt);
+        for (const varName of requiredVariables) {
+          if (varName === 'original_name') {
+            const originalNameVar = config.variables.find(v => v.name === 'original_name');
+            if (originalNameVar && originalNameVar.formatting && originalNameVar.formatting !== 'none') {
+              variableValues[varName] = this.applyFormatting(originalNameWithoutExt, originalNameVar.formatting);
+            } else {
+              variableValues[varName] = originalNameWithoutExt;
+            }
+            continue;
+          }
+          
+          const variable = config.variables.find(v => v.name === varName);
+          if (variable) {
+            const extractResult = await errorHandler.safeExecute(
+              () => aiService.extractVariable(extractedData.text, variable),
+              `Variable extraction for ${varName}`,
+              { value: `<${varName.toUpperCase()}>` }
+            );
+            
+            // Apply formatting to the extracted value
+            let value = extractResult.value || `<${varName.toUpperCase()}>`;
+            if (variable.formatting && variable.formatting !== 'none') {
+              value = this.applyFormatting(value, variable.formatting);
+            }
+            variableValues[varName] = value;
+          } else {
+            variableValues[varName] = `<${varName.toUpperCase()}>`;
+          }
+        }
+        
+        // Apply the naming pattern with formatted values
+        finalName = this.applyNamingPattern(category.naming_pattern, variableValues);
       }
       
       // Organize file (skip rename if already processed)

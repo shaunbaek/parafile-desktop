@@ -17,7 +17,7 @@ class AIService {
     });
   }
 
-  async categorizeDocument(text, categories, expertise = 'general') {
+  async categorizeDocument(text, categories, expertise = 'general', feedback = null) {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
     }
@@ -30,15 +30,33 @@ class AIService {
       ? `You are a legal document categorization expert. Focus on legal terminology, document types, and legal document structures.`
       : `You are a general document categorization assistant. Focus on common business and personal document types.`;
 
+    // Include feedback learning if available
+    let feedbackContext = '';
+    if (feedback && feedback.recentCorrections && feedback.recentCorrections.categories.length > 0) {
+      feedbackContext = `\n\nIMPORTANT LEARNING FROM USER CORRECTIONS:
+Recent categorization corrections made by users:
+${feedback.recentCorrections.categories.map(c => 
+  `- Documents categorized as "${c.was}" were corrected to "${c.correctedTo}" because: ${c.because}`
+).join('\n')}`;
+    }
+
+    if (feedback && feedback.categoryPatterns && feedback.categoryPatterns.length > 0) {
+      feedbackContext += `\n\nCOMMON PATTERNS:
+${feedback.categoryPatterns.map(p => 
+  `- Documents initially categorized as "${p.from}" are often corrected to "${p.to}" (${p.occurrences} times)`
+).join('\n')}`;
+    }
+    
     const systemPrompt = `${expertiseContext} Analyze the provided document text and categorize it into one of the given categories.
 
 Available categories:
-${categoryList}
+${categoryList}${feedbackContext}
 
 Respond with a JSON object containing:
 - category: The name of the most appropriate category
 - reasoning: A detailed explanation of why this category was chosen (2-3 sentences explaining the key indicators and document characteristics that led to this categorization)
-- confidence: A number from 0 to 100 indicating your confidence level`;
+- confidence: A number from 0 to 100 indicating your confidence level
+- consideringFeedback: Boolean indicating if past corrections influenced this decision`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -53,6 +71,17 @@ Respond with a JSON object containing:
       });
 
       const result = JSON.parse(response.choices[0].message.content);
+      
+      // Adjust confidence based on feedback patterns
+      if (feedback && feedback.categoryPatterns) {
+        const hasPattern = feedback.categoryPatterns.find(p => p.from === result.category);
+        if (hasPattern && hasPattern.occurrences >= 3) {
+          // Lower confidence if this category is often corrected
+          result.confidence = Math.max(result.confidence - 20, 30);
+          result.reasoning += ` (Note: This category is often corrected to "${hasPattern.to}")`;
+        }
+      }
+      
       return result;
     } catch (error) {
       console.error('Error categorizing document:', error);
@@ -379,9 +408,15 @@ If no files match, return: {"results": []}`;
         }
       }
       
+      // Map relevanceScore to score for frontend consistency
+      const mappedResults = results.map(result => ({
+        ...result,
+        score: result.relevanceScore || result.score || 0
+      }));
+      
       return {
         success: true,
-        results: results
+        results: mappedResults
       };
     } catch (error) {
       console.error('Error searching files:', error);

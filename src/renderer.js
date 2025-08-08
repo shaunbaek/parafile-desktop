@@ -10,7 +10,17 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   setupIPCListeners();
   initializeDragAndDrop();
+  updateSearchShortcut();
 });
+
+// Update search shortcut display based on platform
+function updateSearchShortcut() {
+  const shortcutSpan = document.querySelector('.search-shortcut');
+  if (shortcutSpan) {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    shortcutSpan.textContent = isMac ? '⌘K' : 'Ctrl+K';
+  }
+}
 
 
 // Check if first time user and show introduction
@@ -268,19 +278,19 @@ function renderCategories() {
   }
   
   container.innerHTML = currentConfig.categories.map((category, index) => `
-    <div class="list-item">
+    <div class="list-item" style="cursor: pointer;" onclick="showCategoryDetails(${index})">
       <div class="list-item-info">
         <h4>${category.name}</h4>
-        <p>${category.description}</p>
+        <p style="color: var(--primary); font-weight: 500;">${category.shortDescription || category.description.substring(0, 50) + '...'}</p>
         <div class="naming-pattern">Pattern: ${category.naming_pattern}</div>
       </div>
-      <div class="list-item-actions">
+      <div class="list-item-actions" onclick="event.stopPropagation()">
         ${category.name !== 'General' ? `
           <button class="btn btn-secondary btn-small" onclick="editCategory(${index})">
-            <span>✏️</span> Edit
+            Edit
           </button>
           <button class="btn btn-danger btn-small" onclick="deleteCategory(${index})">
-            <span>🗑️</span> Delete
+            Delete
           </button>
         ` : '<span style="color: #232323; opacity: 0.5; font-size: 13px;">Protected category</span>'}
       </div>
@@ -302,24 +312,29 @@ function renderVariables() {
     return;
   }
   
-  container.innerHTML = currentConfig.variables.map((variable, index) => `
+  container.innerHTML = currentConfig.variables.map((variable, index) => {
+    const formattingLabel = variable.formatting && variable.formatting !== 'none' ? 
+      ` <span style="font-size: 11px; color: #666; font-weight: normal;">(${variable.formatting})</span>` : '';
+    
+    return `
     <div class="list-item" style="cursor: pointer;" onclick="showVariableDetails(${index})">
       <div class="list-item-info">
-        <h4>{${variable.name}}</h4>
+        <h4>{${variable.name}}${formattingLabel}</h4>
         <p style="color: var(--primary); font-weight: 500;">${variable.shortDescription || variable.description.substring(0, 50) + '...'}</p>
       </div>
       <div class="list-item-actions" onclick="event.stopPropagation()">
         ${variable.name !== 'original_name' ? `
           <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); editVariable(${index})">
-            <span>✏️</span> Edit
+            Edit
           </button>
           <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteVariable(${index})">
-            <span>🗑️</span> Delete
+            Delete
           </button>
         ` : '<span style="color: #232323; opacity: 0.5; font-size: 13px;">Protected variable</span>'}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // Category modal
@@ -355,6 +370,7 @@ function showVariableModal(variable = null, index = -1) {
   if (variable) {
     document.getElementById('variableName').value = variable.name;
     document.getElementById('variableDescription').value = variable.description;
+    document.getElementById('variableFormatting').value = variable.formatting || 'none';
   } else {
     form.reset();
   }
@@ -438,15 +454,32 @@ function setupModalControls() {
       naming_pattern: document.getElementById('namingPattern').value
     };
     
-    if (editingCategoryIndex >= 0) {
-      currentConfig = await ipcRenderer.invoke('config:updateCategory', editingCategoryIndex, category);
-    } else {
-      currentConfig = await ipcRenderer.invoke('config:addCategory', category);
-    }
+    // Show loading modal for short description generation
+    showLoadingModal('Saving Category', 'Generating short description...');
     
-    document.getElementById('categoryModal').classList.remove('active');
-    renderCategories();
-    showNotification('Success', `Category "${category.name}" saved`, 'success');
+    try {
+      // Generate short description for the category
+      const shortDescResult = await ipcRenderer.invoke('api:generateShortDescription', category.name, category.description);
+      
+      if (shortDescResult.success) {
+        category.shortDescription = shortDescResult.shortDescription;
+      }
+      
+      // Save the category
+      if (editingCategoryIndex >= 0) {
+        currentConfig = await ipcRenderer.invoke('config:updateCategory', editingCategoryIndex, category);
+      } else {
+        currentConfig = await ipcRenderer.invoke('config:addCategory', category);
+      }
+      
+      hideLoadingModal();
+      document.getElementById('categoryModal').classList.remove('active');
+      renderCategories();
+      showNotification('Success', `Category "${category.name}" saved`, 'success');
+    } catch (error) {
+      hideLoadingModal();
+      showNotification('Error', 'Failed to save category', 'error');
+    }
   });
   
   // Variable form submission
@@ -455,7 +488,8 @@ function setupModalControls() {
     
     const variable = {
       name: document.getElementById('variableName').value,
-      description: document.getElementById('variableDescription').value
+      description: document.getElementById('variableDescription').value,
+      formatting: document.getElementById('variableFormatting').value || 'none'
     };
     
     // Show loading modal
@@ -654,125 +688,217 @@ function setupModalControls() {
     showNotification('Success', 'Pattern applied. Review and save the category.', 'success');
   });
   
-  // AI Search functionality
-  const searchInput = document.getElementById('searchInput');
-  const searchBtn = document.getElementById('searchBtn');
-  const searchResultsModal = document.getElementById('searchResultsModal');
-  const searchResultsList = document.getElementById('searchResultsList');
-  const loadMoreBtn = document.getElementById('loadMoreBtn');
-  const searchScope = document.getElementById('searchScope');
+  // Search Modal functionality
+  const searchModal = document.getElementById('searchModal');
+  const searchTriggerBtn = document.getElementById('searchTriggerBtn');
+  const searchModalInput = document.getElementById('searchModalInput');
+  const searchModalClose = document.getElementById('searchModalClose');
+  const searchModalBackdrop = searchModal?.querySelector('.search-modal-backdrop');
+  const searchModalScope = document.getElementById('searchModalScope');
   
-  let currentSearchQuery = '';
-  let currentResults = [];
-  let showingCount = 3;
-  
-  // Search button click
-  searchBtn.addEventListener('click', () => {
-    const query = searchInput.value.trim();
-    if (query.length >= 3) {
-      performSearch(query);
-    } else {
-      showNotification('Search Query Too Short', 'Please enter at least 3 characters to search', 'error');
-    }
-  });
-  
-  // Enter key search
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const query = searchInput.value.trim();
-      if (query.length >= 3) {
-        performSearch(query);
-      } else {
-        showNotification('Search Query Too Short', 'Please enter at least 3 characters to search', 'error');
-      }
-    }
-  });
-  
-  // Load more button
-  loadMoreBtn.addEventListener('click', () => {
-    showingCount = Math.min(showingCount + 5, currentResults.length);
-    displaySearchResults(currentResults);
-  });
-  
-  async function performSearch(query) {
-    currentSearchQuery = query;
-    showingCount = 3; // Reset to show top 3
+  // Perform search within modal
+  async function performSearchInModal(query, scope) {
+    const resultsDiv = document.getElementById('searchModalResults');
+    if (!resultsDiv) return;
     
-    // Open search results modal and show loading state
-    searchResultsModal.classList.add('active');
-    document.getElementById('searchResultsTitle').textContent = 'Search Results';
-    searchResultsList.innerHTML = '<div class="search-loading" style="text-align: center; padding: 40px; font-size: 16px;">🔍 AI searching your files...</div>';
-    loadMoreBtn.style.display = 'none';
+    // Show loading state
+    resultsDiv.innerHTML = `
+      <div class="search-modal-loading">
+        <div class="spinner"></div>
+        <p>Searching your documents...</p>
+      </div>
+    `;
     
     try {
-      const scope = searchScope.value;
       const result = await ipcRenderer.invoke('ai:searchFiles', {
         query: query,
         scope: scope
       });
       
-      if (result.success) {
-        // Ensure results is always an array
-        currentResults = Array.isArray(result.results) ? result.results : [];
-        displaySearchResults(currentResults);
+      if (result.success && result.results && result.results.length > 0) {
+        displaySearchResults(result.results, resultsDiv);
       } else {
-        searchResultsList.innerHTML = `<div style="text-align: center; padding: 40px; color: #d32f2f;">❌ Search failed: ${result.error}</div>`;
+        resultsDiv.innerHTML = `
+          <div class="search-modal-empty">
+            <div class="search-modal-empty-icon">📄</div>
+            <p>No documents found matching your query</p>
+            <div class="search-modal-tips">
+              <p>Try different keywords or check your search scope</p>
+            </div>
+          </div>
+        `;
       }
     } catch (error) {
-      searchResultsList.innerHTML = `<div style="text-align: center; padding: 40px; color: #d32f2f;">❌ Search error: ${error.message}</div>`;
+      resultsDiv.innerHTML = `
+        <div class="search-modal-error">
+          <div class="search-modal-error-icon">⚠️</div>
+          <p>Search failed: ${error.message || 'Unknown error'}</p>
+        </div>
+      `;
     }
   }
   
-  function displaySearchResults(results) {
-    // Ensure results is an array
-    if (!Array.isArray(results)) {
-      console.error('displaySearchResults called with non-array:', results);
-      results = [];
-    }
+  // Display search results in modal
+  function displaySearchResults(results, container) {
+    const resultsHTML = results.map((result) => {
+      const score = result.score || 0;
+      const scorePercent = Math.round(score * 100);
+      
+      // Determine score class for color coding
+      let scoreClass = 'low-score';
+      if (score >= 0.7) scoreClass = 'high-score';
+      else if (score >= 0.4) scoreClass = 'medium-score';
+      
+      return `
+        <div class="search-result-item" data-path="${result.path}">
+          <div class="search-result-header">
+            <h4 class="search-result-filename">${result.filename}</h4>
+            <div class="search-result-score ${scoreClass}">Score: ${scorePercent}%</div>
+          </div>
+          <div class="search-result-path">${result.path}</div>
+          ${result.reason ? `<div class="search-result-reason">${result.reason}</div>` : ''}
+          <div class="search-result-actions">
+            <button class="search-result-btn" onclick="openFile('${result.path}')">
+              Open File
+            </button>
+            <button class="search-result-btn secondary" onclick="showFileLocation('${result.path}')">
+              Show in Folder
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
     
-    if (results.length === 0) {
-      searchResultsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">No files found matching your search.</div>';
-      loadMoreBtn.style.display = 'none';
-      return;
-    }
-    
-    const resultsToShow = results.slice(0, showingCount);
-    
-    searchResultsList.innerHTML = resultsToShow.map((result, index) => `
-      <div class="search-result-item" data-file-path="${result.path}" data-result-index="${index}">
-        <div class="search-result-filename">${result.filename}</div>
-        <div class="search-result-path">${result.path}</div>
-        <div class="search-result-reason">${result.reason || 'AI matched this file to your search'}</div>
+    container.innerHTML = `
+      <div class="search-modal-results-header">
+        <h3>Found ${results.length} document${results.length === 1 ? '' : 's'}</h3>
       </div>
-    `).join('');
-    
-    // Add click listeners to each result item
-    const resultItems = searchResultsList.querySelectorAll('.search-result-item');
-    resultItems.forEach(item => {
-      item.addEventListener('click', () => {
-        const filePath = item.getAttribute('data-file-path');
-        openFile(filePath);
-      });
-    });
-    
-    // Show load more button if there are more results
-    if (showingCount < results.length) {
-      loadMoreBtn.style.display = 'block';
-      loadMoreBtn.textContent = `Load More (${results.length - showingCount} remaining)`;
-    } else {
-      loadMoreBtn.style.display = 'none';
-    }
+      <div class="search-modal-results-list">
+        ${resultsHTML}
+      </div>
+    `;
   }
   
-  async function openFile(filePath) {
+  // File action functions
+  window.openFile = async function(filePath) {
     try {
       await ipcRenderer.invoke('file:open', filePath);
-      // Close the search modal after opening file
-      searchResultsModal.classList.remove('active');
     } catch (error) {
       showNotification('Error', `Could not open file: ${error.message}`, 'error');
     }
+  };
+  
+  window.showFileLocation = async function(filePath) {
+    try {
+      const { shell } = require('electron');
+      shell.showItemInFolder(filePath);
+    } catch (error) {
+      showNotification('Error', `Could not show file location: ${error.message}`, 'error');
+    }
+  };
+  let currentResults = [];
+  let showingCount = 3;
+  
+  // Show search modal
+  function showSearchModal() {
+    if (searchModal) {
+      searchModal.classList.add('active');
+      searchModalInput.focus();
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
   }
+  
+  // Hide search modal
+  function hideSearchModal() {
+    if (searchModal) {
+      searchModal.classList.remove('active');
+      document.body.style.overflow = ''; // Restore scrolling
+      searchModalInput.value = '';
+      // Clear results and show empty state
+      const resultsDiv = document.getElementById('searchModalResults');
+      if (resultsDiv) {
+        resultsDiv.innerHTML = `
+          <div class="search-modal-empty">
+            <div class="search-modal-empty-icon">🔍</div>
+            <p>Start typing to search your documents</p>
+            <div class="search-modal-shortcuts">
+              <div class="search-shortcut-item">
+                <kbd>↵</kbd>
+                <span>to search</span>
+              </div>
+              <div class="search-shortcut-item">
+                <kbd>↑↓</kbd>
+                <span>to navigate</span>
+              </div>
+              <div class="search-shortcut-item">
+                <kbd>esc</kbd>
+                <span>to close</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
+  
+  // Global keyboard shortcut (Ctrl+K / Cmd+K)
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      showSearchModal();
+    }
+    
+    // ESC to close search modal
+    if (e.key === 'Escape' && searchModal?.classList.contains('active')) {
+      e.preventDefault();
+      hideSearchModal();
+    }
+  });
+  
+  // Event listeners
+  if (searchTriggerBtn) {
+    searchTriggerBtn.addEventListener('click', showSearchModal);
+  }
+  
+  if (searchModalClose) {
+    searchModalClose.addEventListener('click', hideSearchModal);
+  }
+  
+  if (searchModalBackdrop) {
+    searchModalBackdrop.addEventListener('click', hideSearchModal);
+  }
+  
+  if (searchModalInput) {
+    searchModalInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const query = searchModalInput.value.trim();
+        if (query.length >= 3) {
+          performSearchInModal(query, searchModalScope.value);
+        } else {
+          showNotification('Search Query Too Short', 'Please enter at least 3 characters to search', 'error');
+        }
+      } else if (e.key === 'Escape') {
+        hideSearchModal();
+      }
+    });
+  }
+  
+  // Update shortcut display based on platform
+  const shortcutDisplay = document.querySelector('.search-shortcut');
+  if (shortcutDisplay) {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    shortcutDisplay.textContent = isMac ? '⌘K' : 'Ctrl+K';
+  }
+  
+  // Load more button
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', () => {
+      showingCount = Math.min(showingCount + 5, currentResults.length);
+      displaySearchResults(currentResults);
+    });
+  }
+  
+  // Removed old performSearch function - now using performSearchInModal
 
   // Description suggestion modal handlers
   document.getElementById('keepOriginalBtn').addEventListener('click', async () => {
@@ -784,7 +910,8 @@ function setupModalControls() {
     modal.classList.remove('active');
     
     // Save with original description
-    await saveVariable({ name: variableName, description: originalDescription });
+    const formatting = document.getElementById('variableFormatting').value || 'none';
+    await saveVariable({ name: variableName, description: originalDescription, formatting });
   });
 
   document.getElementById('saveEditedBtn').addEventListener('click', async () => {
@@ -801,7 +928,8 @@ function setupModalControls() {
     modal.classList.remove('active');
     
     // Save with edited description
-    await saveVariable({ name: variableName, description: editedDescription });
+    const formatting = document.getElementById('variableFormatting').value || 'none';
+    await saveVariable({ name: variableName, description: editedDescription, formatting });
   });
   
   // Settings form submission
@@ -946,6 +1074,23 @@ function showVariableDetails(index) {
 
 // Make showVariableDetails global for onclick
 window.showVariableDetails = showVariableDetails;
+
+// Show category details modal
+function showCategoryDetails(index) {
+  const category = currentConfig.categories[index];
+  if (!category) return;
+  
+  const modal = document.getElementById('categoryDetailsModal');
+  document.getElementById('detailsCategoryName').textContent = category.name;
+  document.getElementById('detailsCategoryShortDescription').textContent = category.shortDescription || 'No short description available';
+  document.getElementById('detailsCategoryDescription').textContent = category.description;
+  document.getElementById('detailsCategoryPattern').textContent = category.naming_pattern;
+  
+  modal.classList.add('active');
+}
+
+// Make showCategoryDetails global for onclick
+window.showCategoryDetails = showCategoryDetails;
 
 // Show notification
 function showNotification(title, message, type = 'success') {

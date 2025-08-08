@@ -70,31 +70,88 @@ function setupModalControls() {
     });
   });
   
-  // Save correction button
-  document.getElementById('saveCorrectionBtn').addEventListener('click', async () => {
-    const newCategory = document.getElementById('correctionNewCategory').value;
-    const feedback = document.getElementById('correctionFeedback').value;
+  // Edit button
+  document.getElementById('editBtn').addEventListener('click', () => {
+    const log = processingLogs.find(l => l.id == editingLogId);
+    if (log) {
+      showEditMode(log);
+    }
+  });
+  
+  // Cancel edit button
+  document.getElementById('cancelEditBtn').addEventListener('click', () => {
+    const log = processingLogs.find(l => l.id == editingLogId);
+    if (log) {
+      showViewMode(log);
+    }
+  });
+  
+  // Save corrections button
+  document.getElementById('saveCorrectionsBtn').addEventListener('click', async () => {
+    const log = processingLogs.find(l => l.id == editingLogId);
+    if (!log) return;
     
-    if (!newCategory) {
-      showNotification('Error', 'Please select a correct category', 'error');
+    const newName = document.getElementById('editParafileName').value.trim();
+    const nameFeedback = document.getElementById('editNameFeedback').value.trim();
+    const newCategory = document.getElementById('editCategory').value;
+    const categoryFeedback = document.getElementById('editCategoryFeedback').value.trim();
+    
+    // Check if any changes were made
+    const nameChanged = newName && newName !== log.parafileName;
+    const categoryChanged = newCategory && newCategory !== log.category;
+    
+    if (!nameChanged && !categoryChanged) {
+      showNotification('Info', 'No changes to save', 'info');
+      return;
+    }
+    
+    // Validate feedback for changes
+    if (nameChanged && !nameFeedback) {
+      showNotification('Error', 'Please explain why you changed the name', 'error');
+      return;
+    }
+    
+    if (categoryChanged && !categoryFeedback) {
+      showNotification('Error', 'Please explain why you changed the category', 'error');
       return;
     }
     
     try {
-      await ipcRenderer.invoke('log:addCorrection', editingLogId, {
-        newCategory: newCategory,
-        feedback: feedback
-      });
+      const correction = {
+        timestamp: new Date().toISOString()
+      };
       
-      // Close modal
-      document.getElementById('logCorrectionModal').classList.remove('active');
+      if (nameChanged) {
+        correction.newName = newName;
+        correction.nameFeedback = nameFeedback;
+      }
       
-      // Refresh the log
-      await loadProcessingLog();
+      if (categoryChanged) {
+        correction.newCategory = newCategory;
+        correction.categoryFeedback = categoryFeedback;
+      }
       
-      showNotification('Success', 'Correction saved successfully', 'success');
+      await ipcRenderer.invoke('log:addCorrection', editingLogId, correction);
+      
+      // Update the log in memory
+      log.parafileName = nameChanged ? newName : log.parafileName;
+      log.category = categoryChanged ? newCategory : log.category;
+      log.corrected = true;
+      
+      if (!log.corrections) {
+        log.corrections = [];
+      }
+      log.corrections.push(correction);
+      
+      // Show view mode with updated data
+      showViewMode(log);
+      
+      // Refresh the table
+      renderLogTable();
+      
+      showNotification('Success', 'Corrections saved successfully', 'success');
     } catch (error) {
-      showNotification('Error', 'Failed to save correction', 'error');
+      showNotification('Error', 'Failed to save corrections', 'error');
     }
   });
 }
@@ -135,7 +192,7 @@ function renderLogTable() {
       <tr style="cursor: pointer; transition: background-color 0.2s;" 
           onmouseover="this.style.backgroundColor='#f8f9fa'" 
           onmouseout="this.style.backgroundColor=''"
-          onclick="showCorrectionModal('${log.id}')">
+          onclick="showLogDetails('${log.id}')">
         <td style="padding: 12px; border-bottom: 1px solid #eee; max-width: 200px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" title="${log.originalName}">
           ${log.originalName}
         </td>
@@ -159,21 +216,97 @@ function renderLogTable() {
   }).join('');
 }
 
-// Show correction modal
-function showCorrectionModal(logId) {
+// Show log details modal
+function showLogDetails(logId) {
   const log = processingLogs.find(l => l.id == logId);
   if (!log) return;
   
   editingLogId = logId;
   
-  // Populate modal with log data
-  document.getElementById('correctionOriginalName').textContent = log.originalName;
-  document.getElementById('correctionCurrentCategory').textContent = log.category;
-  document.getElementById('correctionReasoning').textContent = log.reasoning || 'No reasoning available';
+  // Show view mode initially
+  showViewMode(log);
+  
+  // Open modal
+  const modal = document.getElementById('logViewModal');
+  modal.classList.add('active');
+}
+
+// Show view mode
+function showViewMode(log) {
+  // Show view mode, hide edit mode
+  document.getElementById('viewMode').style.display = 'block';
+  document.getElementById('editMode').style.display = 'none';
+  document.getElementById('viewModeButtons').style.display = 'flex';
+  document.getElementById('editModeButtons').style.display = 'none';
+  document.getElementById('logModalTitle').textContent = 'Processing Details';
+  
+  // Populate view mode data
+  document.getElementById('viewOriginalName').textContent = log.originalName;
+  document.getElementById('viewParafileName').textContent = log.parafileName || 'N/A';
+  document.getElementById('viewCategory').textContent = log.category;
+  document.getElementById('viewReasoning').textContent = log.reasoning || 'No reasoning available';
+  
+  // Status
+  const statusHtml = log.success 
+    ? '<span style="background: #448649; color: white; padding: 4px 12px; border-radius: 12px; font-size: 14px;">Successfully Processed</span>'
+    : '<span style="background: #c45050; color: white; padding: 4px 12px; border-radius: 12px; font-size: 14px;">Failed</span>';
+  document.getElementById('viewStatus').innerHTML = statusHtml;
+  
+  // Timestamp
+  const date = new Date(log.timestamp);
+  document.getElementById('viewTimestamp').textContent = 
+    date.toLocaleDateString() + ' at ' + date.toLocaleTimeString();
+  
+  // Show corrections history if any
+  if (log.corrections && log.corrections.length > 0) {
+    document.getElementById('viewCorrections').style.display = 'block';
+    const correctionsList = document.getElementById('correctionsList');
+    correctionsList.innerHTML = log.corrections.map(correction => `
+      <div style="background: rgba(68, 134, 73, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid var(--primary);">
+        ${correction.newName ? `
+          <p style="margin-bottom: 8px;">
+            <strong>Name changed to:</strong> 
+            <span style="font-family: monospace; background: white; padding: 2px 6px; border-radius: 4px;">${correction.newName}</span>
+          </p>
+          ${correction.nameFeedback ? `<p style="margin-bottom: 8px; color: #666; font-style: italic;">"${correction.nameFeedback}"</p>` : ''}
+        ` : ''}
+        ${correction.newCategory ? `
+          <p style="margin-bottom: 8px;">
+            <strong>Category changed to:</strong> 
+            <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px;">${correction.newCategory}</span>
+          </p>
+          ${correction.categoryFeedback ? `<p style="margin-bottom: 8px; color: #666; font-style: italic;">"${correction.categoryFeedback}"</p>` : ''}
+        ` : ''}
+        <p style="margin: 0; font-size: 12px; color: #999;">
+          Corrected on ${new Date(correction.timestamp).toLocaleDateString()}
+        </p>
+      </div>
+    `).join('');
+  } else {
+    document.getElementById('viewCorrections').style.display = 'none';
+  }
+}
+
+// Show edit mode
+function showEditMode(log) {
+  // Show edit mode, hide view mode
+  document.getElementById('viewMode').style.display = 'none';
+  document.getElementById('editMode').style.display = 'block';
+  document.getElementById('viewModeButtons').style.display = 'none';
+  document.getElementById('editModeButtons').style.display = 'flex';
+  document.getElementById('logModalTitle').textContent = 'Edit Corrections';
+  
+  // Populate edit mode data
+  document.getElementById('editOriginalName').textContent = log.originalName;
+  document.getElementById('editParafileName').value = log.parafileName || '';
+  
+  // Clear feedback fields
+  document.getElementById('editNameFeedback').value = '';
+  document.getElementById('editCategoryFeedback').value = '';
   
   // Populate category dropdown
-  const categorySelect = document.getElementById('correctionNewCategory');
-  categorySelect.innerHTML = '<option value="">Select the correct category...</option>';
+  const categorySelect = document.getElementById('editCategory');
+  categorySelect.innerHTML = '<option value="">Keep current category</option>';
   
   if (currentConfig && currentConfig.categories) {
     currentConfig.categories.forEach(category => {
@@ -181,22 +314,15 @@ function showCorrectionModal(logId) {
       option.value = category.name;
       option.textContent = category.name;
       if (category.name === log.category) {
-        option.disabled = true;
         option.textContent += ' (current)';
       }
       categorySelect.appendChild(option);
     });
   }
-  
-  // Clear feedback
-  document.getElementById('correctionFeedback').value = '';
-  
-  // Show modal
-  document.getElementById('logCorrectionModal').classList.add('active');
 }
 
-// Make showCorrectionModal global for onclick
-window.showCorrectionModal = showCorrectionModal;
+// Make functions global for onclick
+window.showLogDetails = showLogDetails;
 
 // Show notification
 function showNotification(title, message, type = 'success') {
