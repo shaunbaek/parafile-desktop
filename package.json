@@ -11,6 +11,9 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "generate-icons": "node src/assets/generate-icons.js",
     "prebuild": "npm run generate-icons"
   },
@@ -65,6 +68,7 @@
     "@electron-forge/publisher-github": "^7.8.1",
     "@electron/fuses": "^1.8.0",
     "electron": "37.2.4",
+    "jest": "^30.0.5",
     "officegen": "^0.6.5",
     "pdfkit": "^0.17.1"
   }
