@@ -1,4 +1,6 @@
 const OpenAI = require('openai');
+const fs = require('fs');
+const path = require('path');
 
 class AIService {
   constructor() {
@@ -546,6 +548,127 @@ ${expertiseGuidelines}`;
       console.error('Error evaluating variable description:', error);
       throw error;
     }
+  }
+
+  async analyzeImageWithVision(imagePath, categories, expertise = 'general') {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    try {
+      // Read image and convert to base64
+      const imageBuffer = fs.readFileSync(imagePath);
+      const base64Image = imageBuffer.toString('base64');
+      const mimeType = this.getMimeType(imagePath);
+
+      const categoryList = categories.map(cat => 
+        `- ${cat.name}: ${cat.description}`
+      ).join('\n');
+
+      const expertiseContext = expertise === 'legal' 
+        ? `You are a legal document categorization expert. Focus on legal terminology, document types, and legal document structures.`
+        : `You are a general document categorization assistant. Focus on common business and personal document types.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: expertiseContext
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analyze this image and categorize it. If it contains text, extract the key information. 
+                      
+                      Available categories:
+                      ${categoryList}
+                      
+                      Also extract relevant information that might be useful for filename generation (dates, names, amounts, document types, etc.)
+                      
+                      Respond in JSON format:
+                      {
+                        "category": "chosen category name",
+                        "confidence": 0.0 to 1.0,
+                        "reasoning": "explanation of why this category was chosen",
+                        "extractedText": "any visible text in the image",
+                        "extractedInfo": {
+                          "documentType": "type of document if identifiable",
+                          "date": "any date found",
+                          "entities": ["list of names, companies, etc."],
+                          "amounts": ["any monetary amounts"],
+                          "other": "any other relevant information"
+                        }
+                      }`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`,
+                  detail: 'high'
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.3
+      });
+
+      // Parse the response
+      const content = response.choices[0].message.content;
+      
+      // Try to extract JSON from the response
+      let result;
+      try {
+        // First try direct JSON parse
+        result = JSON.parse(content);
+      } catch (e) {
+        // If that fails, try to extract JSON from markdown code block
+        const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[1]);
+        } else {
+          // Fallback: create a basic result from the text
+          result = {
+            category: 'General',
+            confidence: 0.5,
+            reasoning: 'Could not parse AI response properly',
+            extractedText: content,
+            extractedInfo: {}
+          };
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error analyzing image with Vision API:', error);
+      
+      // Fallback to basic categorization
+      return {
+        category: 'General',
+        confidence: 0.3,
+        reasoning: 'Vision API analysis failed, using fallback',
+        extractedText: '',
+        extractedInfo: {}
+      };
+    }
+  }
+
+  getMimeType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.bmp': 'image/bmp',
+      '.webp': 'image/webp',
+      '.tiff': 'image/tiff'
+    };
+    return mimeTypes[ext] || 'image/jpeg';
   }
 }
 

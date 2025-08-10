@@ -116,3 +116,11 @@ src/assets/icons/
 src/assets/*.ico
 src/assets/*.icns
 src/assets/dmg-background.png
+
+# Test files and data
+test-files/
+test-*.js
+create-*.js
+automated-test.js
+final-test.sh
+eng.traineddata

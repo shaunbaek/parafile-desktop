@@ -42,7 +42,10 @@
             </button>
           </div>
           <p class="folder-help-text">
-            ParaFile will monitor this folder and <strong>all subdirectories</strong> for PDF and Word documents.
+            ParaFile will monitor this folder and <strong>all subdirectories</strong> for:
+            <br>• <strong>Documents:</strong> PDF, Word (.doc, .docx)
+            <br>• <strong>Spreadsheets:</strong> Excel (.xls, .xlsx), CSV
+            <br>• <strong>Images:</strong> PNG, JPG, GIF, BMP, TIFF, WebP
           </p>
           
           <h4 style="margin: 25px 0 15px 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif; font-size: 16px;">Settings</h4>
@@ -96,7 +99,10 @@
           <!-- Drag and Drop Zone -->
           <div id="dropZone" class="drop-zone" style="display: none;">
             <div class="drop-zone-icon">📄</div>
-            <p>Drag and drop PDF or Word files here for instant processing</p>
+            <p>Drag and drop files here for instant processing</p>
+            <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+              Supported: PDF, Word, Excel, CSV, Images (PNG, JPG, GIF, etc.)
+            </p>
           </div>
 
           <!-- Processing Log -->
@@ -299,6 +305,18 @@
               </label>
               <label for="enableDesktopNotifications" class="toggle-label">
                 Show desktop notifications for file processing
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <div class="toggle-container">
+              <label class="toggle-switch">
+                <input type="checkbox" id="autoStartMonitoring">
+                <span class="toggle-slider"></span>
+              </label>
+              <label for="autoStartMonitoring" class="toggle-label">
+                Automatically start monitoring when app launches
               </label>
             </div>
           </div>

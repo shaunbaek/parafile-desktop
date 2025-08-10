@@ -81,23 +81,44 @@ class DocumentProcessor {
         `Text extraction for ${result.fileName}`
       );
       
-      if (!extractedData || !extractedData.text || extractedData.text.trim().length === 0) {
-        throw new Error('No meaningful text extracted from document');
+      // Handle different file types for categorization
+      let categorization;
+      const isImageFile = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'].includes(
+        path.extname(fileInfo.path).toLowerCase()
+      );
+      
+      if (isImageFile) {
+        // Use Vision API for images
+        categorization = await errorHandler.safeExecute(
+          () => aiService.analyzeImageWithVision(fileInfo.path, config.categories, config.expertise),
+          `Vision API analysis for ${result.fileName}`,
+          { category: 'General', reasoning: 'Fallback due to Vision API error', confidence: 0 }
+        );
+        
+        // If Vision API extracted text, add it to extractedData
+        if (categorization.extractedText) {
+          extractedData.text = (extractedData.text || '') + '\n' + categorization.extractedText;
+        }
+      } else {
+        // Use regular text categorization for documents and spreadsheets
+        if (!extractedData || !extractedData.text || extractedData.text.trim().length === 0) {
+          throw new Error('No meaningful text extracted from document');
+        }
+        
+        // Get feedback for AI improvement
+        const feedback = await errorHandler.safeExecute(
+          () => configManager.getRelevantFeedback(extractedData.text, 'General'),
+          `Feedback retrieval for ${result.fileName}`,
+          null
+        );
+        
+        // Categorize document with AI (including feedback)
+        categorization = await errorHandler.safeExecute(
+          () => aiService.categorizeDocument(extractedData.text, config.categories, config.expertise, feedback),
+          `AI categorization for ${result.fileName}`,
+          { category: 'General', reasoning: 'Fallback due to AI error', confidence: 0 }
+        );
       }
-
-      // Get feedback for AI improvement
-      const feedback = await errorHandler.safeExecute(
-        () => configManager.getRelevantFeedback(extractedData.text, 'General'),
-        `Feedback retrieval for ${result.fileName}`,
-        null
-      );
-
-      // Categorize document with AI (including feedback)
-      const categorization = await errorHandler.safeExecute(
-        () => aiService.categorizeDocument(extractedData.text, config.categories, config.expertise, feedback),
-        `AI categorization for ${result.fileName}`,
-        { category: 'General', reasoning: 'Fallback due to AI error', confidence: 0 }
-      );
       
       result.category = categorization.category;
       result.confidence = categorization.confidence;

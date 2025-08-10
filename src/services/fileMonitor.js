@@ -81,7 +81,14 @@ class FileMonitor extends EventEmitter {
   handleFileEvent(filePath, eventType) {
     const ext = path.extname(filePath).toLowerCase();
     
-    if (ext === '.pdf' || ext === '.docx' || ext === '.doc') {
+    // Expanded file type support
+    const supportedExtensions = [
+      '.pdf', '.docx', '.doc',  // Documents
+      '.csv', '.xlsx', '.xls',  // Spreadsheets
+      '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'  // Images
+    ];
+    
+    if (supportedExtensions.includes(ext)) {
       const absolutePath = path.resolve(filePath);
       const fileName = path.basename(filePath);
       

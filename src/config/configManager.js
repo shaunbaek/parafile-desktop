@@ -11,6 +11,7 @@ class ConfigManager {
       watched_folder: '',
       enable_organization: true,
       enable_desktop_notifications: true,
+      auto_start_monitoring: false,
       openai_api_key: '',
       expertise: 'general',
       categories: [
@@ -48,6 +49,11 @@ class ConfigManager {
 
   async save(config) {
     try {
+      // Ensure auto_start_monitoring is preserved
+      if (config.auto_start_monitoring === undefined) {
+        const existing = await this.load();
+        config.auto_start_monitoring = existing.auto_start_monitoring || false;
+      }
       const validatedConfig = this.validateAndRepair(config);
       await fs.writeFile(this.configPath, JSON.stringify(validatedConfig, null, 2));
       return true;
@@ -66,6 +72,7 @@ class ConfigManager {
       watched_folder: config.watched_folder || '',
       enable_organization: config.enable_organization !== false,
       enable_desktop_notifications: config.enable_desktop_notifications !== false,
+      auto_start_monitoring: config.auto_start_monitoring === true,
       openai_api_key: config.openai_api_key || '',
       expertise: config.expertise || 'general',
       categories: Array.isArray(config.categories) ? config.categories : [],

@@ -123,21 +123,30 @@ function setupIPCListeners() {
     updateMonitorStatus(status);
   });
   
+  ipcRenderer.on('monitor:auto-started', (event, started) => {
+    if (started) {
+      showNotification('Auto-Start', 'File monitoring started automatically', 'success');
+    }
+  });
+  
   ipcRenderer.on('monitor:error', (event, error) => {
     showNotification('Error', error, 'error');
   });
   
   ipcRenderer.on('file:processed', (event, result) => {
     console.log('File processed:', result);
+    const fileIcon = getFileTypeIcon(result.fileName);
+    const fileType = getFileTypeCategory(result.fileName);
+    
     if (result.success) {
       showNotification(
-        'Document Processed', 
+        `${fileIcon} ${fileType} Processed`, 
         `${result.fileName} → ${result.category}`,
         'success'
       );
     } else {
       showNotification(
-        'Processing Failed',
+        `${fileIcon} Processing Failed`,
         `${result.fileName}: ${result.error}`,
         'error'
       );
@@ -397,6 +406,9 @@ async function showSettingsModal() {
   
   // Load desktop notifications setting
   document.getElementById('enableDesktopNotifications').checked = currentConfig.enable_desktop_notifications !== false;
+  
+  // Load auto-start monitoring setting
+  document.getElementById('autoStartMonitoring').checked = currentConfig.auto_start_monitoring === true;
   
   // Clear status
   document.getElementById('apiKeyStatus').textContent = '';
@@ -939,15 +951,18 @@ function setupModalControls() {
     const apiKey = document.getElementById('openaiApiKey').value.trim();
     const minimizeToTray = document.getElementById('minimizeToTray').checked;
     const enableDesktopNotifications = document.getElementById('enableDesktopNotifications').checked;
+    const autoStartMonitoring = document.getElementById('autoStartMonitoring').checked;
     
     // Save API key and notification settings
     await ipcRenderer.invoke('config:updateSettings', {
       openai_api_key: apiKey,
-      enable_desktop_notifications: enableDesktopNotifications
+      enable_desktop_notifications: enableDesktopNotifications,
+      auto_start_monitoring: autoStartMonitoring
     });
     
     currentConfig.openai_api_key = apiKey;
     currentConfig.enable_desktop_notifications = enableDesktopNotifications;
+    currentConfig.auto_start_monitoring = autoStartMonitoring;
     
     // Save minimize to tray setting
     localStorage.setItem('minimizeToTray', minimizeToTray);
@@ -1092,6 +1107,51 @@ function showCategoryDetails(index) {
 // Make showCategoryDetails global for onclick
 window.showCategoryDetails = showCategoryDetails;
 
+// Get file type icon based on extension
+function getFileTypeIcon(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  const icons = {
+    // Documents
+    'pdf': '📄',
+    'doc': '📝',
+    'docx': '📝',
+    // Spreadsheets
+    'csv': '📊',
+    'xls': '📊',
+    'xlsx': '📊',
+    // Images
+    'png': '🖼️',
+    'jpg': '🖼️',
+    'jpeg': '🖼️',
+    'gif': '🖼️',
+    'bmp': '🖼️',
+    'tiff': '🖼️',
+    'webp': '🖼️'
+  };
+  return icons[ext] || '📁';
+}
+
+// Get file type category
+function getFileTypeCategory(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  const categories = {
+    'pdf': 'PDF Document',
+    'doc': 'Word Document',
+    'docx': 'Word Document',
+    'csv': 'Spreadsheet',
+    'xls': 'Excel Spreadsheet',
+    'xlsx': 'Excel Spreadsheet',
+    'png': 'Image',
+    'jpg': 'Image',
+    'jpeg': 'Image',
+    'gif': 'Image',
+    'bmp': 'Image',
+    'tiff': 'Image',
+    'webp': 'Image'
+  };
+  return categories[ext] || 'File';
+}
+
 // Show notification
 function showNotification(title, message, type = 'success') {
   const notification = document.getElementById('notification');
@@ -1160,21 +1220,58 @@ async function handleDrop(e) {
 }
 
 async function handleFiles(files) {
-  ([...files]).forEach(async (file) => {
+  if (!currentConfig || !currentConfig.watched_folder) {
+    showNotification('Error', 'Please configure a watched folder first', 'error');
+    return;
+  }
+
+  for (const file of files) {
     const ext = file.name.split('.').pop().toLowerCase();
-    if (['pdf', 'doc', 'docx'].includes(ext)) {
+    const supportedTypes = ['pdf', 'doc', 'docx', 'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp'];
+    const fileIcon = getFileTypeIcon(file.name);
+    
+    if (supportedTypes.includes(ext)) {
       // Show processing notification
-      showNotification('Processing', `Processing ${file.name}...`, 'success');
+      showNotification(`${fileIcon} Processing`, `Processing ${file.name}...`, 'success');
       
-      // In a real implementation, you would send this file to the main process
-      // For now, we'll just show a success message after a delay
-      setTimeout(() => {
-        showNotification('Success', `${file.name} has been processed`, 'success');
-      }, 2000);
+      try {
+        // Create a temporary file path in the watched folder
+        const tempPath = path.join(currentConfig.watched_folder, file.name);
+        
+        // Read file as array buffer
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Send to main process for actual processing
+        const result = await ipcRenderer.invoke('file:processDropped', {
+          fileName: file.name,
+          buffer: buffer,
+          fileType: ext,
+          originalPath: tempPath
+        });
+        
+        if (result.success) {
+          showNotification(
+            `${fileIcon} Processed`, 
+            `${file.name} → ${result.category}`,
+            'success'
+          );
+        } else {
+          showNotification(
+            `${fileIcon} Failed`, 
+            `Failed to process ${file.name}: ${result.error}`,
+            'error'
+          );
+        }
+        
+      } catch (error) {
+        console.error('Error processing dropped file:', error);
+        showNotification('Error', `Failed to process ${file.name}: ${error.message}`, 'error');
+      }
     } else {
       showNotification('Error', `${file.name} is not a supported file type`, 'error');
     }
-  });
+  }
 }
 
 // Global functions for inline onclick handlers

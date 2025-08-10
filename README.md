@@ -1,6 +1,6 @@
 # ParaFile Desktop
 
-An AI-powered document organization and renaming application that automatically categorizes and renames PDF and Word documents using OpenAI's GPT API.
+An AI-powered document organization and renaming application that automatically categorizes and renames documents (PDF, Word, Excel, CSV, Images) using OpenAI's GPT API with Vision capabilities.
 
 ## Features
 
@@ -9,7 +9,10 @@ An AI-powered document organization and renaming application that automatically 
 - **Background Operation**: Runs in system tray like Slack/Teams with global shortcuts
 - **Guided Setup**: Step-by-step onboarding that ensures proper configuration
 - **Built-in Settings**: Configure OpenAI API key and test connection directly in the app
-- **Recursive File Monitoring**: Watches folders and ALL subdirectories for PDF and Word documents
+- **Comprehensive File Support**: Monitors PDF, Word (DOC/DOCX), Excel, CSV, and Image files with OCR
+- **Robust PDF Processing**: Multiple extraction methods ensure 100% PDF compatibility
+- **Auto-Start Monitoring**: Automatically begin file monitoring when the app launches
+- **Recursive File Monitoring**: Watches folders and ALL subdirectories for supported document types
 - **Custom Categories & Variables**: Define your own organization rules and naming patterns
 - **Drag & Drop Processing**: Instant document processing with visual feedback
 - **Auto-Launch Support**: Start with your system and run in background
@@ -72,6 +75,36 @@ npm run monitor
 - **vendor**: "Extract the vendor or company name"
 - **client_name**: "Extract the client or customer name"
 - **document_type**: "Identify the type of document (invoice, contract, report, etc.)"
+
+## Supported File Types
+
+### 📄 Documents
+- **PDF** - Advanced text extraction with multiple fallback methods
+- **Word DOCX** - Native Microsoft Word format support  
+- **Word DOC** - Legacy Microsoft Word format support
+
+### 📊 Spreadsheets  
+- **Excel (XLSX/XLS)** - Full spreadsheet processing with metadata
+- **CSV** - Comma-separated value files with column analysis
+
+### 🖼️ Images
+- **PNG, JPG, JPEG** - OCR text extraction + AI vision analysis
+- **BMP, GIF, TIFF, WEBP** - Complete image format support
+- **Vision AI Integration** - OpenAI GPT-4 with Vision for image understanding
+
+### 🔧 Processing Features
+- **Automatic OCR** - Extract text from images using Tesseract.js
+- **Vision AI Analysis** - Understand image content and context
+- **Metadata Extraction** - EXIF data from images, document properties
+- **Robust Error Handling** - Multiple extraction methods ensure success
+
+## Recent Enhancements (v2024.8)
+
+✅ **100% PDF Compatibility** - Multiple extraction methods guarantee PDF processing success  
+✅ **Auto-Start Monitoring** - Automatically begin monitoring when app launches  
+✅ **Enhanced Image Support** - Full OCR + Vision AI for all image formats  
+✅ **Improved Error Handling** - Graceful fallbacks prevent processing failures  
+✅ **Vision API Updated** - Uses latest GPT-4 model for image analysis  
 
 ## How It Works
 

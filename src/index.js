@@ -45,8 +45,27 @@ const createWindow = () => {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   // Show window when ready
-  mainWindow.once('ready-to-show', () => {
+  mainWindow.once('ready-to-show', async () => {
     mainWindow.show();
+    
+    // Auto-start monitoring if configured
+    const config = await configManager.load();
+    if (config.auto_start_monitoring && config.watched_folder && config.openai_api_key) {
+      console.log('Auto-starting file monitoring...');
+      setTimeout(async () => {
+        try {
+          fileMonitor.start(config.watched_folder);
+          isMonitoring = true;
+          mainWindow.webContents.send('monitor:status', true);
+          mainWindow.webContents.send('monitor:auto-started', true);
+          updateTrayMenu();
+          console.log('File monitoring auto-started successfully');
+        } catch (error) {
+          console.error('Failed to auto-start monitoring:', error);
+          mainWindow.webContents.send('monitor:error', `Failed to auto-start monitoring: ${error.message}`);
+        }
+      }, 2000); // Delay to ensure renderer is ready
+    }
   });
 
   // Handle window close based on user preference
@@ -333,7 +352,11 @@ app.on('window-all-closed', () => {
 // Get file list for search based on scope
 async function getFileList(scope, watchedFolder) {
   const fileList = [];
-  const supportedExtensions = ['.pdf', '.doc', '.docx'];
+  const supportedExtensions = [
+    '.pdf', '.doc', '.docx',  // Documents
+    '.csv', '.xlsx', '.xls',  // Spreadsheets
+    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'  // Images
+  ];
   
   try {
     let searchPaths = [];
@@ -389,13 +412,9 @@ async function scanDirectory(dirPath, fileList, extensions, maxDepth, currentDep
           
           try {
             // Extract a small preview of the document content
-            if (ext === '.pdf') {
-              const result = await textExtractor.extractPDF(itemPath);
-              content = result.text ? result.text.substring(0, 500) : '';
-            } else if (ext === '.doc' || ext === '.docx') {
-              const result = await textExtractor.extractWord(itemPath);
-              content = result.text ? result.text.substring(0, 500) : '';
-            }
+            const fileType = ext.substring(1); // Remove the dot
+            const result = await textExtractor.extractText(itemPath, fileType);
+            content = result.text ? result.text.substring(0, 500) : '';
           } catch (extractError) {
             // If extraction fails, still include the file but without content
             console.log(`Could not extract content from ${itemPath}:`, extractError.message);
