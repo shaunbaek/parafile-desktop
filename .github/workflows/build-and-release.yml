@@ -46,7 +46,34 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm libarchive-tools imagemagick
+          sudo apt-get install -y \
+            rpm \
+            libarchive-tools \
+            imagemagick \
+            fpm \
+            build-essential \
+            libnss3-dev \
+            libatk-bridge2.0-dev \
+            libdrm2 \
+            libxss1 \
+            libgconf-2-4 \
+            libxrandr2 \
+            libasound2-dev \
+            libpangocairo-1.0-0 \
+            libatk1.0-dev \
+            libcairo-gobject2 \
+            libgtk-3-dev \
+            libgdk-pixbuf2.0-dev \
+            libvips-dev \
+            python3-dev
+
+      - name: Setup virtual display (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          sleep 2
+          echo "DISPLAY=:99" >> $GITHUB_ENV
 
       - name: Install macOS icon tools
         if: matrix.os == 'macos-latest'
@@ -100,6 +127,17 @@ jobs:
           [System.IO.File]::WriteAllBytes($certPath, $cert)
           echo "WINDOWS_CERT_FILE=$certPath" >> $env:GITHUB_ENV
 
+      - name: Debug environment (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "DISPLAY=$DISPLAY"
+          ps aux | grep Xvfb || echo "No Xvfb process found"
+          ls -la src/assets/
+          echo "Checking required icon files..."
+          test -f src/assets/icon.png && echo "✓ icon.png exists" || echo "✗ icon.png missing"
+          test -f src/assets/icon.icns && echo "✓ icon.icns exists" || echo "✗ icon.icns missing"
+          test -f src/assets/icon.ico && echo "✓ icon.ico exists" || echo "✗ icon.ico missing"
+          
       - name: Build with Electron Forge
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -108,7 +146,13 @@ jobs:
           APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run make
+          DEBUG: electron-forge:*
+          npm_config_cache: ${{ github.workspace }}/.npm
+        run: |
+          echo "Building for platform: ${{ matrix.platform }}"
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          npm run make
 
       - name: List build artifacts
         run: |
