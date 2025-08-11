@@ -107,35 +107,67 @@ class ConfigManager {
   }
 
   async addCategory(category) {
-    const config = await this.load();
-    config.categories.push(category);
-    await this.save(config);
-    return config;
+    try {
+      const config = await this.load();
+      
+      // Check for duplicate names
+      const exists = config.categories.some(cat => cat.name === category.name);
+      if (exists) {
+        return { success: false, error: `Category "${category.name}" already exists` };
+      }
+      
+      config.categories.push(category);
+      await this.save(config);
+      return { success: true, data: config };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   async updateCategory(index, category) {
-    const config = await this.load();
-    if (config.categories[index] && config.categories[index].name !== 'General') {
-      config.categories[index] = category;
-      await this.save(config);
+    try {
+      const config = await this.load();
+      if (config.categories[index] && config.categories[index].name !== 'General') {
+        config.categories[index] = category;
+        await this.save(config);
+        return { success: true, data: config };
+      }
+      return { success: false, error: 'Cannot update General category or invalid index' };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-    return config;
   }
 
   async deleteCategory(index) {
-    const config = await this.load();
-    if (config.categories[index] && config.categories[index].name !== 'General') {
-      config.categories.splice(index, 1);
-      await this.save(config);
+    try {
+      const config = await this.load();
+      if (config.categories[index] && config.categories[index].name !== 'General') {
+        config.categories.splice(index, 1);
+        await this.save(config);
+        return { success: true, data: config };
+      }
+      return { success: false, error: 'Cannot delete General category or invalid index' };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-    return config;
   }
 
   async addVariable(variable) {
-    const config = await this.load();
-    config.variables.push(variable);
-    await this.save(config);
-    return config;
+    try {
+      const config = await this.load();
+      
+      // Check for duplicate names
+      const exists = config.variables.some(v => v.name === variable.name);
+      if (exists) {
+        return { success: false, error: `Variable "${variable.name}" already exists` };
+      }
+      
+      config.variables.push(variable);
+      await this.save(config);
+      return { success: true, data: config };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   async updateVariable(index, variable) {
@@ -148,30 +180,39 @@ class ConfigManager {
   }
 
   async deleteVariable(index) {
-    const config = await this.load();
-    if (config.variables[index] && config.variables[index].name !== 'original_name') {
-      config.variables.splice(index, 1);
-      await this.save(config);
+    try {
+      const config = await this.load();
+      if (config.variables[index] && config.variables[index].name !== 'original_name') {
+        config.variables.splice(index, 1);
+        await this.save(config);
+        return { success: true, data: config };
+      }
+      return { success: false, error: 'original_name variable cannot be deleted' };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-    return config;
   }
 
   async updateSettings(settings) {
-    const config = await this.load();
-    if (settings.watched_folder !== undefined) {
-      config.watched_folder = settings.watched_folder;
+    try {
+      const config = await this.load();
+      if (settings.watched_folder !== undefined) {
+        config.watched_folder = settings.watched_folder;
+      }
+      if (settings.enable_organization !== undefined) {
+        config.enable_organization = settings.enable_organization;
+      }
+      if (settings.openai_api_key !== undefined) {
+        config.openai_api_key = settings.openai_api_key;
+      }
+      if (settings.expertise !== undefined) {
+        config.expertise = settings.expertise;
+      }
+      await this.save(config);
+      return { success: true, data: config };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-    if (settings.enable_organization !== undefined) {
-      config.enable_organization = settings.enable_organization;
-    }
-    if (settings.openai_api_key !== undefined) {
-      config.openai_api_key = settings.openai_api_key;
-    }
-    if (settings.expertise !== undefined) {
-      config.expertise = settings.expertise;
-    }
-    await this.save(config);
-    return config;
   }
 
   // Processing Log Management
@@ -478,6 +519,15 @@ class ConfigManager {
     }
     
     return analysis;
+  }
+
+  // Aliases for backward compatibility and testing
+  async logProcessing(entry) {
+    return await this.addLogEntry(entry);
+  }
+
+  async getProcessingLog() {
+    return await this.loadLog();
   }
 }
 

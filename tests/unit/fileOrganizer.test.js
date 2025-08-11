@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const os = require('os');
+const fileOrganizer = require('../../src/services/fileOrganizer');
 
 describe('FileOrganizer Service', () => {
   let testDir;
@@ -18,7 +19,7 @@ describe('FileOrganizer Service', () => {
 
   afterEach(async () => {
     if (fsSync.existsSync(testDir)) {
-      await fs.rmdir(testDir, { recursive: true, force: true });
+      await fs.rm(testDir, { recursive: true, force: true });
     }
   });
 

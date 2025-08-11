@@ -49,7 +49,7 @@ describe('ConfigManager Service', () => {
       if (fsSync.existsSync(testConfigPath)) {
         await fs.unlink(testConfigPath);
       }
-      await fs.rmdir(testConfigDir);
+      await fs.rm(testConfigDir, { recursive: true, force: true });
     } catch (error) {
       // Ignore cleanup errors
     }
