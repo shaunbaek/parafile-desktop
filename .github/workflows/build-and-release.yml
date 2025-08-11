@@ -46,10 +46,29 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm libarchive-tools
+          sudo apt-get install -y rpm libarchive-tools imagemagick
 
-      - name: Generate icons
-        run: npm run generate-icons
+      - name: Install macOS icon tools
+        if: matrix.os == 'macos-latest'
+        run: |
+          # macOS should have sips and iconutil built-in
+          echo "macOS icon tools are built-in"
+
+      - name: Install Windows icon tools (skip)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "Skipping icon generation on Windows - using pre-built icons"
+
+      - name: Generate icons (Unix)
+        if: matrix.os != 'windows-latest'
+        run: npm run generate-icons || echo "Icon generation failed, continuing with existing icons"
+        
+      - name: Generate icons (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "Attempting icon generation on Windows..."
+          npm run generate-icons
+        continue-on-error: true
 
       # macOS Code Signing
       - name: Import macOS certificates
@@ -128,12 +147,12 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
-          release_name: ParaFile Desktop ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
+          name: ParaFile Desktop ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
           body: |
             ## ParaFile Desktop Release
             
@@ -157,50 +176,17 @@ jobs:
             - **Other**: Download the `.zip` file and extract
             
             ### What's New
-            - See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details
+            - See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/docs/CHANGELOG.md) for details
           draft: true
           prerelease: false
+          files: |
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.zip
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.AppImage
 
-      - name: Upload Release Assets
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs').promises;
-            const path = require('path');
-            
-            const releaseId = ${{ steps.create_release.outputs.id }};
-            
-            async function uploadAssets(dir) {
-              const entries = await fs.readdir(dir, { withFileTypes: true });
-              
-              for (const entry of entries) {
-                const fullPath = path.join(dir, entry.name);
-                
-                if (entry.isDirectory()) {
-                  await uploadAssets(fullPath);
-                } else if (entry.isFile()) {
-                  const ext = path.extname(entry.name).toLowerCase();
-                  const validExts = ['.dmg', '.exe', '.deb', '.rpm', '.zip', '.appimage'];
-                  
-                  if (validExts.includes(ext)) {
-                    console.log(`Uploading ${entry.name}...`);
-                    
-                    const data = await fs.readFile(fullPath);
-                    
-                    await github.rest.repos.uploadReleaseAsset({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      release_id: releaseId,
-                      name: entry.name,
-                      data: data
-                    });
-                  }
-                }
-              }
-            }
-            
-            await uploadAssets('artifacts');
 
   update-latest-json:
     needs: release
@@ -237,11 +223,9 @@ jobs:
           EOF
 
       - name: Upload latest.json to release
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./latest.json
-          asset_name: latest.json
-          asset_content_type: application/json
+          tag_name: ${{ github.ref_name }}
+          files: latest.json

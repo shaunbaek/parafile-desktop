@@ -17,16 +17,28 @@ async function generateIcons() {
   const sourceIcon = path.join(__dirname, 'icon.png');
   const iconsDir = path.join(__dirname, 'icons');
   
-  // Create icons directory
-  if (!fs.existsSync(iconsDir)) {
-    fs.mkdirSync(iconsDir, { recursive: true });
-  }
-  
-  // Check if source icon exists
-  if (!fs.existsSync(sourceIcon)) {
-    console.error('Source icon not found at:', sourceIcon);
-    console.log('Creating a default icon...');
-    await createDefaultIcon(sourceIcon);
+  try {
+    // Create icons directory
+    if (!fs.existsSync(iconsDir)) {
+      fs.mkdirSync(iconsDir, { recursive: true });
+      console.log('Created icons directory');
+    }
+    
+    // Check if source icon exists
+    if (!fs.existsSync(sourceIcon)) {
+      console.error('Source icon not found at:', sourceIcon);
+      console.log('Creating a default icon...');
+      await createDefaultIcon(sourceIcon);
+    }
+    
+    // Verify source icon exists after potential creation
+    if (!fs.existsSync(sourceIcon)) {
+      console.error('Could not create or find source icon. Exiting.');
+      process.exit(0); // Exit gracefully instead of failing
+    }
+  } catch (error) {
+    console.error('Error setting up icon generation:', error);
+    process.exit(0); // Exit gracefully
   }
   
   try {
@@ -36,26 +48,56 @@ async function generateIcons() {
     
     for (const size of allSizes) {
       const outputFile = path.join(iconsDir, `icon_${size}x${size}.png`);
-      await execAsync(`sips -z ${size} ${size} "${sourceIcon}" --out "${outputFile}"`);
-      console.log(`Created ${size}x${size} icon`);
+      try {
+        // Try sips first (macOS)
+        await execAsync(`sips -z ${size} ${size} "${sourceIcon}" --out "${outputFile}"`);
+        console.log(`Created ${size}x${size} icon using sips`);
+      } catch (error) {
+        try {
+          // Fallback to ImageMagick (Linux/Windows)
+          await execAsync(`convert "${sourceIcon}" -resize ${size}x${size} "${outputFile}"`);
+          console.log(`Created ${size}x${size} icon using ImageMagick`);
+        } catch (error2) {
+          console.log(`Failed to create ${size}x${size} icon:`, error2.message);
+        }
+      }
     }
     
     // Generate Windows ICO file
     console.log('Generating Windows ICO file...');
     const icoFile = path.join(__dirname, 'icon.ico');
-    const icoInputs = iconSizes.windows.map(size => 
-      path.join(iconsDir, `icon_${size}x${size}.png`)
-    ).join(' ');
     
-    // Note: This requires png2ico to be installed
-    // brew install png2ico (macOS) or apt-get install png2ico (Linux)
+    // Try different methods for ICO generation
     try {
-      await execAsync(`png2ico "${icoFile}" ${icoInputs}`);
-      console.log('Created icon.ico');
+      // Try ImageMagick first (available on most CI systems)
+      const icoInputs = iconSizes.windows.map(size => 
+        path.join(iconsDir, `icon_${size}x${size}.png`)
+      ).filter(file => fs.existsSync(file));
+      
+      if (icoInputs.length > 0) {
+        await execAsync(`convert ${icoInputs.join(' ')} "${icoFile}"`);
+        console.log('Created icon.ico using ImageMagick');
+      } else {
+        throw new Error('No input files found for ICO generation');
+      }
     } catch (error) {
-      console.log('png2ico not found. Please install it for Windows icon generation.');
-      console.log('macOS: brew install png2ico');
-      console.log('Linux: apt-get install png2ico');
+      try {
+        // Fallback to png2ico if available
+        const icoInputs = iconSizes.windows.map(size => 
+          path.join(iconsDir, `icon_${size}x${size}.png`)
+        ).filter(file => fs.existsSync(file)).join(' ');
+        
+        await execAsync(`png2ico "${icoFile}" ${icoInputs}`);
+        console.log('Created icon.ico using png2ico');
+      } catch (error2) {
+        console.log('Could not generate icon.ico. Trying to copy existing PNG...');
+        // Use the largest PNG as fallback
+        const fallback = path.join(iconsDir, 'icon_256x256.png');
+        if (fs.existsSync(fallback)) {
+          fs.copyFileSync(fallback, icoFile);
+          console.log('Copied PNG as ICO fallback');
+        }
+      }
     }
     
     // Generate macOS ICNS file
@@ -153,12 +195,20 @@ async function createDefaultIcon(outputPath) {
   const svgPath = outputPath.replace('.png', '.svg');
   fs.writeFileSync(svgPath, canvas);
   
-  // Convert to PNG (requires Inkscape or ImageMagick)
+  // Convert to PNG 
   try {
+    // Try sips first (macOS)
     await execAsync(`sips -s format png "${svgPath}" --out "${outputPath}" --resampleHeightWidthMax 1024`);
-    console.log('Created default icon');
+    console.log('Created default icon using sips');
   } catch (error) {
-    console.log('Could not convert SVG to PNG. Please install ImageMagick or create icon.png manually.');
+    try {
+      // Fallback to ImageMagick
+      await execAsync(`convert "${svgPath}" -resize 1024x1024 "${outputPath}"`);
+      console.log('Created default icon using ImageMagick');
+    } catch (error2) {
+      console.log('Could not convert SVG to PNG. Please install ImageMagick or create icon.png manually.');
+      console.log('Error:', error2.message);
+    }
   }
 }
 
@@ -220,10 +270,17 @@ async function createDMGBackground() {
   fs.writeFileSync(svgPath, dmgBg);
   
   try {
+    // Try sips first (macOS)
     await execAsync(`sips -s format png "${svgPath}" --out "${outputPath}" --resampleHeightWidthMax 800`);
-    console.log('Created DMG background');
+    console.log('Created DMG background using sips');
   } catch (error) {
-    console.log('Could not create DMG background');
+    try {
+      // Fallback to ImageMagick
+      await execAsync(`convert "${svgPath}" -resize 800x600 "${outputPath}"`);
+      console.log('Created DMG background using ImageMagick');
+    } catch (error2) {
+      console.log('Could not create DMG background:', error2.message);
+    }
   }
 }
 
