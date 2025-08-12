@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-ParaFile Desktop is an AI-powered document organization and renaming application built with Electron. It monitors folders for PDF and Word documents, uses OpenAI's GPT API to analyze content, and automatically categorizes and renames files based on user-defined rules.
+ParaFile Desktop is an AI-powered document organization and renaming application built with Electron. It monitors folders for PDF, Word documents, and audio files, uses OpenAI's GPT API to analyze content, and automatically categorizes and renames files based on user-defined rules.
 
 ## Development Commands
 
@@ -31,7 +31,8 @@ ParaFile Desktop is an AI-powered document organization and renaming application
 ### Services Layer
 - **Configuration Manager** (`src/config/configManager.js`): Manages user settings, categories, and variables
 - **File Monitor** (`src/services/fileMonitor.js`): Watches folders using chokidar with file locking detection
-- **Text Extractor** (`src/services/textExtractor.js`): Extracts text from PDF (pdf-parse) and Word (mammoth) files
+- **Text Extractor** (`src/services/textExtractor.js`): Extracts text from PDF (pdf-parse), Word (mammoth), and audio files (OpenAI Whisper)
+- **Audio Transcriber** (`src/services/audioTranscriber.js`): Transcribes audio files using OpenAI's Whisper API
 - **AI Service** (`src/services/aiService.js`): Integrates with OpenAI for document categorization and variable extraction
 - **Document Processor** (`src/services/documentProcessor.js`): Orchestrates the full processing pipeline
 - **File Organizer** (`src/services/fileOrganizer.js`): Handles file moving and renaming with conflict resolution
@@ -74,11 +75,12 @@ Configuration is stored in JSON format at `app.getPath('userData')/config.json`:
 
 ## AI Integration
 
-- Uses GPT-4 Turbo for document analysis
+- Uses GPT-4 Turbo for document analysis and OpenAI Whisper for audio transcription
 - Structured JSON responses for reliable parsing
-- Categorization based on document content and user-defined categories
+- Categorization based on document/audio content and user-defined categories
 - Variable extraction for dynamic filename generation
 - Fallback mechanisms for API failures
+- Audio processing supports 7 formats: mp3, mp4, mpeg, mpga, m4a, wav, webm
 
 ## Error Handling
 

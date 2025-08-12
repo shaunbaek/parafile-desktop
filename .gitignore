@@ -124,3 +124,7 @@ create-*.js
 automated-test.js
 final-test.sh
 eng.traineddata
+
+# Documentation (except PRODUCT_DOCUMENTATION.md)
+*.md
+!PRODUCT_DOCUMENTATION.md

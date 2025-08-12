@@ -484,11 +484,18 @@ function setupModalControls() {
       }
       
       // Save the category
+      let result;
       if (editingCategoryIndex >= 0) {
-        currentConfig = await ipcRenderer.invoke('config:updateCategory', editingCategoryIndex, category);
+        result = await ipcRenderer.invoke('config:updateCategory', editingCategoryIndex, category);
       } else {
-        currentConfig = await ipcRenderer.invoke('config:addCategory', category);
+        result = await ipcRenderer.invoke('config:addCategory', category);
       }
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      currentConfig = result.data;
       
       hideLoadingModal();
       document.getElementById('categoryModal').classList.remove('active');
@@ -1030,11 +1037,18 @@ async function saveVariable(variable) {
     }
     
     // Save the variable
+    let result;
     if (editingVariableIndex >= 0) {
-      currentConfig = await ipcRenderer.invoke('config:updateVariable', editingVariableIndex, variable);
+      result = await ipcRenderer.invoke('config:updateVariable', editingVariableIndex, variable);
     } else {
-      currentConfig = await ipcRenderer.invoke('config:addVariable', variable);
+      result = await ipcRenderer.invoke('config:addVariable', variable);
     }
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    currentConfig = result.data;
     
     hideLoadingModal();
     document.getElementById('variableModal').classList.remove('active');
@@ -1287,9 +1301,17 @@ window.editCategory = (index) => {
 
 window.deleteCategory = async (index) => {
   if (confirm('Are you sure you want to delete this category?')) {
-    currentConfig = await ipcRenderer.invoke('config:deleteCategory', index);
-    renderCategories();
-    showNotification('Success', 'Category deleted', 'success');
+    try {
+      const result = await ipcRenderer.invoke('config:deleteCategory', index);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      currentConfig = result.data;
+      renderCategories();
+      showNotification('Success', 'Category deleted', 'success');
+    } catch (error) {
+      showNotification('Error', error.message || 'Failed to delete category', 'error');
+    }
   }
 };
 
@@ -1299,10 +1321,18 @@ window.editVariable = (index) => {
 
 window.deleteVariable = async (index) => {
   if (confirm('Are you sure you want to delete this variable?')) {
-    currentConfig = await ipcRenderer.invoke('config:deleteVariable', index);
-    renderVariables();
-    updateAvailableVariables();
-    showNotification('Success', 'Variable deleted', 'success');
+    try {
+      const result = await ipcRenderer.invoke('config:deleteVariable', index);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      currentConfig = result.data;
+      renderVariables();
+      updateAvailableVariables();
+      showNotification('Success', 'Variable deleted', 'success');
+    } catch (error) {
+      showNotification('Error', error.message || 'Failed to delete variable', 'error');
+    }
   }
 };
 

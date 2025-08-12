@@ -171,12 +171,17 @@ class ConfigManager {
   }
 
   async updateVariable(index, variable) {
-    const config = await this.load();
-    if (config.variables[index] && config.variables[index].name !== 'original_name') {
-      config.variables[index] = variable;
-      await this.save(config);
+    try {
+      const config = await this.load();
+      if (config.variables[index] && config.variables[index].name !== 'original_name') {
+        config.variables[index] = variable;
+        await this.save(config);
+        return { success: true, data: config };
+      }
+      return { success: false, error: 'Variable not found or cannot be updated' };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-    return config;
   }
 
   async deleteVariable(index) {
@@ -253,7 +258,8 @@ class ConfigManager {
       reasoning: entry.reasoning,
       success: entry.success,
       corrected: false,
-      corrections: []
+      corrections: [],
+      tokenUsage: entry.tokenUsage || null // Track token usage and costs
     };
     
     logs.push(logEntry);
@@ -425,6 +431,7 @@ class ConfigManager {
 
   // Get relevant feedback for AI context
   async getRelevantFeedback(documentText, currentCategory) {
+    // documentText parameter reserved for future content-based feedback analysis
     const feedback = await this.loadFeedback();
     const relevantFeedback = {
       categoryPatterns: [],

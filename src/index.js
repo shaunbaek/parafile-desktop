@@ -853,7 +853,8 @@ function setupFileMonitor() {
           parafileName: result.newName,
           category: result.category,
           reasoning: result.reasoning,
-          success: result.success
+          success: result.success,
+          tokenUsage: result.tokenUsage
         });
         
         // Notify log window of update if it exists

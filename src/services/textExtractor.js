@@ -10,19 +10,22 @@ const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
 const exifr = require('exifr');
 const AudioTranscriber = require('./audioTranscriber');
+const VideoProcessor = require('./videoProcessor');
 
 class TextExtractor {
   constructor() {
     this.audioTranscriber = new AudioTranscriber();
+    this.videoProcessor = new VideoProcessor();
   }
 
   /**
-   * Initialize with API key for audio transcription
+   * Initialize with API key for audio transcription and video processing
    * @param {string} apiKey - OpenAI API key
    */
   initialize(apiKey) {
     if (apiKey) {
       this.audioTranscriber.initialize(apiKey);
+      this.videoProcessor.initialize(apiKey);
     }
   }
 
@@ -48,13 +51,21 @@ class TextExtractor {
         case 'webp':
           return await this.extractImage(filePath);
         case 'mp3':
-        case 'mp4':
-        case 'mpeg':
         case 'mpga':
         case 'm4a':
         case 'wav':
-        case 'webm':
           return await this.extractAudio(filePath);
+        case 'mp4':
+        case 'mov':
+        case 'avi':
+        case 'mkv':
+        case 'webm':
+        case 'flv':
+        case 'm4v':
+          return await this.extractVideo(filePath);
+        case 'mpeg':
+          // MPEG can be audio or video, check file to determine
+          return await this.extractMpeg(filePath);
         default:
           throw new Error(`Unsupported file type: ${fileType}`);
       }
@@ -385,7 +396,16 @@ class TextExtractor {
         }
       }
 
-      return enrichedText;
+      return {
+        text: enrichedText,
+        metadata: {
+          language: result.language,
+          duration: result.duration,
+          hasSegments: result.segments && result.segments.length > 0,
+          model: 'whisper-1'
+        },
+        tokenUsage: result.tokenUsage
+      };
 
     } catch (error) {
       console.error('Error extracting audio:', error);
@@ -419,6 +439,74 @@ class TextExtractor {
           throw error;
         }
       }
+    }
+  }
+
+  /**
+   * Extract text from video files using video processing
+   * @param {string} filePath - Path to the video file
+   * @returns {Promise<Object>} - Extracted text and metadata
+   */
+  async extractVideo(filePath) {
+    console.log(`Extracting text from video file: ${filePath}`);
+    
+    try {
+      const result = await this.videoProcessor.processVideo(filePath, {
+        maxFrames: 8 // Limit frames for cost efficiency
+      });
+
+      if (!result.success) {
+        throw new Error(`Video processing failed: ${result.error}`);
+      }
+
+      const text = result.combinedText || '';
+      console.log(`Video processing completed. Text length: ${text.length} characters`);
+      
+      return {
+        text: text,
+        metadata: {
+          format: result.format,
+          size: result.size,
+          duration: result.audioTranscription?.duration,
+          language: result.audioTranscription?.language,
+          hasVisualContent: !!result.visualAnalysis?.description,
+          hasAudioContent: !!result.audioTranscription?.text,
+          processingTime: result.processingTime,
+          model: 'whisper-1 + gpt-4o'
+        },
+        tokenUsage: result.tokenUsage
+      };
+
+    } catch (error) {
+      console.error('Error extracting video:', error);
+      
+      // Provide helpful error messages
+      if (error.message.includes('FFmpeg')) {
+        throw new Error('Video processing requires FFmpeg to be installed. Please install FFmpeg and ensure it\'s in your system PATH.');
+      } else if (error.message.includes('File size')) {
+        throw new Error(`Video file too large: ${error.message}. Please use files smaller than 100MB for efficient processing.`);
+      } else if (error.message.includes('API key')) {
+        throw new Error('OpenAI API key not configured. Video processing requires a valid OpenAI API key.');
+      } else if (error.message.includes('Unsupported')) {
+        throw new Error(`Unsupported video format. Supported formats: ${this.videoProcessor.getSupportedFormats().join(', ')}`);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Handle MPEG files which can be audio or video
+   * @param {string} filePath - Path to the MPEG file
+   * @returns {Promise<Object>}
+   */
+  async extractMpeg(filePath) {
+    // For now, try video processing first, fallback to audio if it fails
+    try {
+      return await this.extractVideo(filePath);
+    } catch (error) {
+      console.log('MPEG video processing failed, trying audio extraction:', error.message);
+      return await this.extractAudio(filePath);
     }
   }
 }

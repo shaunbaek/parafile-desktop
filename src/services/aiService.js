@@ -74,6 +74,16 @@ Respond with a JSON object containing:
 
       const result = JSON.parse(response.choices[0].message.content);
       
+      // Add token usage information
+      if (response.usage) {
+        result.tokenUsage = {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+          estimatedCost: this.calculateCost(response.usage, 'gpt-4-turbo-preview')
+        };
+      }
+      
       // Adjust confidence based on feedback patterns
       if (feedback && feedback.categoryPatterns) {
         const hasPattern = feedback.categoryPatterns.find(p => p.from === result.category);
@@ -123,6 +133,17 @@ Respond with a JSON object containing:
       });
 
       const result = JSON.parse(response.choices[0].message.content);
+      
+      // Add token usage information
+      if (response.usage) {
+        result.tokenUsage = {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+          estimatedCost: this.calculateCost(response.usage, 'gpt-4-turbo-preview')
+        };
+      }
+      
       return result;
     } catch (error) {
       console.error(`Error extracting variable ${variable.name}:`, error);
@@ -669,6 +690,43 @@ ${expertiseGuidelines}`;
       '.tiff': 'image/tiff'
     };
     return mimeTypes[ext] || 'image/jpeg';
+  }
+
+  /**
+   * Calculate estimated cost for OpenAI API usage
+   * @param {Object} usage - Token usage from OpenAI response
+   * @param {string} model - Model name
+   * @returns {number} Estimated cost in USD
+   */
+  calculateCost(usage, model) {
+    // OpenAI pricing as of 2024 (per 1K tokens)
+    const pricing = {
+      'gpt-4-turbo-preview': {
+        input: 0.01,    // $0.01 per 1K input tokens
+        output: 0.03    // $0.03 per 1K output tokens
+      },
+      'gpt-4-vision-preview': {
+        input: 0.01,
+        output: 0.03
+      },
+      'whisper-1': {
+        audio: 0.006    // $0.006 per minute
+      }
+    };
+
+    if (!pricing[model]) {
+      return 0;
+    }
+
+    if (model === 'whisper-1') {
+      // For Whisper, usage might be in minutes
+      return usage.minutes ? usage.minutes * pricing[model].audio : 0;
+    }
+
+    const inputCost = (usage.prompt_tokens / 1000) * pricing[model].input;
+    const outputCost = (usage.completion_tokens / 1000) * pricing[model].output;
+    
+    return inputCost + outputCost;
   }
 }
 

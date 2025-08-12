@@ -163,7 +163,7 @@ function renderLogTable() {
   if (processingLogs.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
+        <td colspan="7" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
           No documents processed yet. Start monitoring in the main window to see processing logs here.
         </td>
       </tr>
@@ -205,6 +205,9 @@ function renderLogTable() {
         <td style="padding: 12px; border-bottom: 1px solid #eee; max-width: 300px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" title="${log.reasoning || 'No reasoning available'}">
           ${log.reasoning || 'No reasoning available'}
         </td>
+        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-size: 12px;">
+          ${renderTokenUsage(log.tokenUsage)}
+        </td>
         <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-size: 14px;">
           ${formattedDate}
         </td>
@@ -214,6 +217,23 @@ function renderLogTable() {
       </tr>
     `;
   }).join('');
+}
+
+// Render token usage for table row
+function renderTokenUsage(tokenUsage) {
+  if (!tokenUsage || !tokenUsage.totalTokens) {
+    return '<span style="color: #999;">-</span>';
+  }
+  
+  const tokens = tokenUsage.totalTokens.toLocaleString();
+  const cost = tokenUsage.totalCost ? `$${tokenUsage.totalCost.toFixed(4)}` : '$0.00';
+  
+  return `
+    <div style="text-align: center;">
+      <div style="font-weight: 500;">${tokens}</div>
+      <div style="color: #666; font-size: 10px;">${cost}</div>
+    </div>
+  `;
 }
 
 // Show log details modal
@@ -256,6 +276,30 @@ function showViewMode(log) {
   const date = new Date(log.timestamp);
   document.getElementById('viewTimestamp').textContent = 
     date.toLocaleDateString() + ' at ' + date.toLocaleTimeString();
+  
+  // Token Usage
+  if (log.tokenUsage && log.tokenUsage.totalTokens > 0) {
+    document.getElementById('viewTokenUsage').style.display = 'block';
+    document.getElementById('totalTokens').textContent = log.tokenUsage.totalTokens.toLocaleString();
+    document.getElementById('totalCost').textContent = log.tokenUsage.totalCost ? log.tokenUsage.totalCost.toFixed(4) : '0.0000';
+    
+    // Show operation breakdown
+    if (log.tokenUsage.operations && log.tokenUsage.operations.length > 0) {
+      const operationsHtml = log.tokenUsage.operations.map(op => `
+        <div style="margin-bottom: 4px;">
+          • <strong>${op.operation.replace(/_/g, ' ')}:</strong> 
+          ${op.tokens.toLocaleString()} tokens 
+          ($${op.cost.toFixed(4)}) 
+          <span style="color: #666;">[${op.model}]</span>
+        </div>
+      `).join('');
+      document.getElementById('operationsDetails').innerHTML = operationsHtml;
+    } else {
+      document.getElementById('operationsDetails').innerHTML = '<div style="color: #666; font-style: italic;">No detailed breakdown available</div>';
+    }
+  } else {
+    document.getElementById('viewTokenUsage').style.display = 'none';
+  }
   
   // Show corrections history if any
   if (log.corrections && log.corrections.length > 0) {

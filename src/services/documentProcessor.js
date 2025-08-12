@@ -52,6 +52,27 @@ class DocumentProcessor {
     return result;
   }
 
+  /**
+   * Track token usage from AI operations
+   * @param {Object} result - The processing result object
+   * @param {Object} operationResult - Result from AI operation containing tokenUsage
+   * @param {string} operation - Description of the operation
+   */
+  trackTokenUsage(result, operationResult, operation) {
+    if (operationResult && operationResult.tokenUsage) {
+      const usage = operationResult.tokenUsage;
+      result.tokenUsage.operations.push({
+        operation,
+        tokens: usage.totalTokens || (usage.promptTokens + usage.completionTokens) || 0,
+        cost: usage.estimatedCost || 0,
+        model: operation.includes('audio') ? 'whisper-1' : 'gpt-4-turbo-preview'
+      });
+      
+      result.tokenUsage.totalTokens += usage.totalTokens || (usage.promptTokens + usage.completionTokens) || 0;
+      result.tokenUsage.totalCost += usage.estimatedCost || 0;
+    }
+  }
+
   async processDocument(fileInfo, config) {
     const startTime = Date.now();
     const result = {
@@ -61,7 +82,12 @@ class DocumentProcessor {
       error: null,
       category: null,
       newName: null,
-      processingTime: 0
+      processingTime: 0,
+      tokenUsage: {
+        totalTokens: 0,
+        totalCost: 0,
+        operations: []
+      }
     };
 
     try {
@@ -81,6 +107,11 @@ class DocumentProcessor {
         () => textExtractor.tryExtractWithRetry(fileInfo.path, fileInfo.type),
         `Text extraction for ${result.fileName}`
       );
+      
+      // Track audio transcription token usage if this was an audio file
+      if (extractedData && extractedData.tokenUsage) {
+        this.trackTokenUsage(result, extractedData, 'audio_transcription');
+      }
       
       // Handle different file types for categorization
       let categorization;
@@ -119,6 +150,9 @@ class DocumentProcessor {
           `AI categorization for ${result.fileName}`,
           { category: 'General', reasoning: 'Fallback due to AI error', confidence: 0 }
         );
+        
+        // Track categorization token usage
+        this.trackTokenUsage(result, categorization, 'document_categorization');
       }
       
       result.category = categorization.category;
@@ -171,6 +205,9 @@ class DocumentProcessor {
               `Variable extraction for ${varName}`,
               { value: `<${varName.toUpperCase()}>` }
             );
+            
+            // Track variable extraction token usage
+            this.trackTokenUsage(result, extractResult, `variable_extraction_${varName}`);
             
             // Apply formatting to the extracted value
             let value = extractResult.value || `<${varName.toUpperCase()}>`;

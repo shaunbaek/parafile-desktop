@@ -1,12 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
+const ModelSelector = require('./modelSelector');
 
 class AudioTranscriber {
   constructor() {
     this.supportedFormats = ['.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'];
     this.maxFileSize = 25 * 1024 * 1024; // 25MB in bytes
     this.openai = null;
+    this.modelSelector = new ModelSelector();
   }
 
   /**
@@ -98,9 +100,22 @@ class AudioTranscriber {
     try {
       console.log(`Starting transcription of ${path.basename(filePath)} (${Math.round(validation.size / 1024)}KB)`);
       
+      // Use model selector to choose the best audio model
+      const modelSelection = await this.modelSelector.selectModel({
+        filePath: filePath,
+        inputType: 'audio_processing',
+        task: 'Audio transcription from file',
+        needsAudio: true,
+        contentLength: validation.size > 10 * 1024 * 1024 ? 'long' : 'medium',
+        costSensitive: true
+      });
+
+      const selectedModel = modelSelection.selectedModel === 'whisper-1' ? 'whisper-1' : 'whisper-1'; // Always use Whisper for now
+      console.log(`Using model: ${selectedModel} (${modelSelection.reasoning})`);
+      
       const transcriptionOptions = {
         file: fs.createReadStream(filePath),
-        model: 'whisper-1',
+        model: selectedModel,
         response_format,
         temperature
       };
@@ -130,7 +145,11 @@ class AudioTranscriber {
           segments: transcription.segments || [],
           processing_time: duration,
           file_size: validation.size,
-          model: 'whisper-1'
+          model: 'whisper-1',
+          tokenUsage: {
+            audioMinutes: transcription.duration ? Math.ceil(transcription.duration / 60) : 1,
+            estimatedCost: transcription.duration ? (transcription.duration / 60) * 0.006 : 0.006
+          }
         };
       } else if (response_format === 'json') {
         return {
@@ -138,7 +157,11 @@ class AudioTranscriber {
           text: transcription.text,
           processing_time: duration,
           file_size: validation.size,
-          model: 'whisper-1'
+          model: 'whisper-1',
+          tokenUsage: {
+            audioMinutes: transcription.duration ? Math.ceil(transcription.duration / 60) : 1,
+            estimatedCost: transcription.duration ? (transcription.duration / 60) * 0.006 : 0.006
+          }
         };
       } else {
         // text format
@@ -147,7 +170,11 @@ class AudioTranscriber {
           text: transcription,
           processing_time: duration,
           file_size: validation.size,
-          model: 'whisper-1'
+          model: 'whisper-1',
+          tokenUsage: {
+            audioMinutes: 1, // fallback for text format
+            estimatedCost: 0.006
+          }
         };
       }
 

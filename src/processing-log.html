@@ -47,13 +47,14 @@
                     <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">ParaFiled Name</th>
                     <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Category</th>
                     <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Reasoning</th>
+                    <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Tokens</th>
                     <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Date</th>
                     <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Status</th>
                   </tr>
                 </thead>
                 <tbody id="logTableBody">
                   <tr>
-                    <td colspan="6" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
+                    <td colspan="7" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
                       <div class="spinner" style="margin: 0 auto 15px auto;"></div>
                       Loading processing log...
                     </td>
@@ -105,6 +106,21 @@
             <div class="form-group">
               <label style="font-weight: bold; color: var(--primary);">Processed On</label>
               <p id="viewTimestamp" style="margin-top: 5px; color: #666;"></p>
+            </div>
+            
+            <!-- Token Usage Information -->
+            <div id="viewTokenUsage" class="form-group" style="display: none;">
+              <label style="font-weight: bold; color: var(--primary);">Token Usage & Cost</label>
+              <div style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                  <span><strong>Total Tokens:</strong> <span id="totalTokens">-</span></span>
+                  <span><strong>Estimated Cost:</strong> $<span id="totalCost">0.00</span></span>
+                </div>
+                <div id="operationsList" style="margin-top: 15px;">
+                  <h5 style="margin: 0 0 8px 0; color: var(--primary);">Operations Breakdown:</h5>
+                  <div id="operationsDetails" style="font-family: monospace; font-size: 12px; line-height: 1.4;"></div>
+                </div>
+              </div>
             </div>
             
             <!-- Show corrections if any -->

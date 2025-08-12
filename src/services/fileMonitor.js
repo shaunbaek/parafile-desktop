@@ -86,7 +86,8 @@ class FileMonitor extends EventEmitter {
       '.pdf', '.docx', '.doc',  // Documents
       '.csv', '.xlsx', '.xls',  // Spreadsheets
       '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp',  // Images
-      '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'  // Audio files
+      '.mp3', '.mpga', '.m4a', '.wav',  // Audio files
+      '.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.m4v', '.mpeg'  // Video files
     ];
     
     if (supportedExtensions.includes(ext)) {
