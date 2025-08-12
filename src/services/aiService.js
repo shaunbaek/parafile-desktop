@@ -1,10 +1,12 @@
 const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
+const ModelSelector = require('./modelSelector');
 
 class AIService {
   constructor() {
     this.openai = null;
+    this.modelSelector = new ModelSelector();
   }
 
   initialize(apiKey) {
@@ -17,6 +19,36 @@ class AIService {
     this.openai = new OpenAI({
       apiKey: apiKey
     });
+  }
+
+  /**
+   * Helper method to select appropriate model for AI tasks
+   * @param {Object} options - Task options
+   * @returns {Promise<Object>} Model selection result
+   */
+  async selectModelForTask(options) {
+    const {
+      task = 'General AI task',
+      complexity = 'medium',
+      expertise = 'general',
+      textLength = 1000,
+      requiresSearch = false,
+      requiresVision = false
+    } = options;
+
+    const modelSelection = await this.modelSelector.selectModel({
+      task,
+      inputType: requiresVision ? 'image' : 'analysis_task',
+      contentLength: textLength > 2000 ? 'long' : textLength > 500 ? 'medium' : 'short',
+      complexity: expertise === 'legal' || complexity === 'high' ? 'high' : 'low',
+      highAccuracy: expertise === 'legal' || complexity === 'high',
+      costSensitive: true,
+      needsSearch: requiresSearch,
+      needsVision: requiresVision
+    });
+
+    console.log(`AI task using ${modelSelection.selectedModel}: ${modelSelection.reasoning}`);
+    return modelSelection.selectedModel;
   }
 
   async categorizeDocument(text, categories, expertise = 'general', feedback = null) {
@@ -61,8 +93,21 @@ Respond with a JSON object containing:
 - consideringFeedback: Boolean indicating if past corrections influenced this decision`;
 
     try {
+      // Use intelligent model selection for document categorization
+      const modelSelection = await this.modelSelector.selectModel({
+        task: `Categorize document into one of ${categories.length} categories`,
+        inputType: 'analysis_task',
+        contentLength: text.length > 2000 ? 'medium' : 'short',
+        complexity: expertise === 'legal' ? 'high' : 'low',
+        highAccuracy: expertise === 'legal',
+        costSensitive: true
+      });
+
+      const selectedModel = modelSelection.selectedModel;
+      console.log(`Document categorization using ${selectedModel}: ${modelSelection.reasoning}`);
+
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Document text:\n\n${text.substring(0, 4000)}` }
@@ -80,7 +125,7 @@ Respond with a JSON object containing:
           promptTokens: response.usage.prompt_tokens,
           completionTokens: response.usage.completion_tokens,
           totalTokens: response.usage.total_tokens,
-          estimatedCost: this.calculateCost(response.usage, 'gpt-4-turbo-preview')
+          estimatedCost: this.calculateCost(response.usage, selectedModel)
         };
       }
       
@@ -121,8 +166,20 @@ Respond with a JSON object containing:
 - context: A brief snippet showing where the value was found`;
 
     try {
+      // Use intelligent model selection for variable extraction
+      const modelSelection = await this.modelSelector.selectModel({
+        task: `Extract variable "${variable.name}" from document`,
+        inputType: 'analysis_task',
+        contentLength: text.length > 2000 ? 'medium' : 'short',
+        complexity: 'low', // Variable extraction is usually straightforward
+        costSensitive: true
+      });
+
+      const selectedModel = modelSelection.selectedModel;
+      console.log(`Variable extraction using ${selectedModel}: ${modelSelection.reasoning}`);
+
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Document text:\n\n${text.substring(0, 4000)}` }
@@ -140,7 +197,7 @@ Respond with a JSON object containing:
           promptTokens: response.usage.prompt_tokens,
           completionTokens: response.usage.completion_tokens,
           totalTokens: response.usage.total_tokens,
-          estimatedCost: this.calculateCost(response.usage, 'gpt-4-turbo-preview')
+          estimatedCost: this.calculateCost(response.usage, selectedModel)
         };
       }
       
@@ -227,7 +284,7 @@ Respond with a JSON object containing:
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -270,7 +327,7 @@ Respond with a JSON object containing:
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -330,7 +387,7 @@ Respond with a JSON object containing:
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `User request: ${prompt}` }
@@ -406,7 +463,7 @@ If no files match, return: {"results": []}`;
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query }
@@ -480,7 +537,7 @@ Respond with a JSON object containing:
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Variable name: ${variableName}\nDescription: ${description}` }
@@ -553,7 +610,7 @@ ${expertiseGuidelines}`;
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: selectedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Evaluate this variable description:\nVariable: ${variableName}\nDescription: ${description}` }
@@ -699,11 +756,37 @@ ${expertiseGuidelines}`;
    * @returns {number} Estimated cost in USD
    */
   calculateCost(usage, model) {
-    // OpenAI pricing as of 2024 (per 1K tokens)
+    // OpenAI pricing as of 2025 (per 1K tokens)
     const pricing = {
+      // Current models
+      'gpt-4o': {
+        input: 2.50,    // $2.50 per 1K input tokens
+        output: 10.00   // $10.00 per 1K output tokens
+      },
+      'gpt-4o-mini': {
+        input: 0.15,    // $0.15 per 1K input tokens
+        output: 0.60    // $0.60 per 1K output tokens
+      },
+      'gpt-4o-search-preview': {
+        input: 2.50,
+        output: 10.00
+      },
+      'gpt-4o-mini-search-preview': {
+        input: 0.15,
+        output: 0.60
+      },
+      'gpt-4o-realtime': {
+        input: 5.00,
+        output: 20.00
+      },
+      'gpt-4o-mini-realtime': {
+        input: 1.00,
+        output: 4.00
+      },
+      // Legacy models for backward compatibility
       'gpt-4-turbo-preview': {
-        input: 0.01,    // $0.01 per 1K input tokens
-        output: 0.03    // $0.03 per 1K output tokens
+        input: 0.01,
+        output: 0.03
       },
       'gpt-4-vision-preview': {
         input: 0.01,

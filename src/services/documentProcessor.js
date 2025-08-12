@@ -65,7 +65,7 @@ class DocumentProcessor {
         operation,
         tokens: usage.totalTokens || (usage.promptTokens + usage.completionTokens) || 0,
         cost: usage.estimatedCost || 0,
-        model: operation.includes('audio') ? 'whisper-1' : 'gpt-4-turbo-preview'
+        model: operation.includes('audio') ? 'whisper-1' : 'gpt-4o-mini'
       });
       
       result.tokenUsage.totalTokens += usage.totalTokens || (usage.promptTokens + usage.completionTokens) || 0;
