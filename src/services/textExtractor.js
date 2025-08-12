@@ -9,8 +9,23 @@ const ExcelJS = require('exceljs');
 const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
 const exifr = require('exifr');
+const AudioTranscriber = require('./audioTranscriber');
 
 class TextExtractor {
+  constructor() {
+    this.audioTranscriber = new AudioTranscriber();
+  }
+
+  /**
+   * Initialize with API key for audio transcription
+   * @param {string} apiKey - OpenAI API key
+   */
+  initialize(apiKey) {
+    if (apiKey) {
+      this.audioTranscriber.initialize(apiKey);
+    }
+  }
+
   async extractText(filePath, fileType) {
     try {
       switch (fileType) {
@@ -32,6 +47,14 @@ class TextExtractor {
         case 'tiff':
         case 'webp':
           return await this.extractImage(filePath);
+        case 'mp3':
+        case 'mp4':
+        case 'mpeg':
+        case 'mpga':
+        case 'm4a':
+        case 'wav':
+        case 'webm':
+          return await this.extractAudio(filePath);
         default:
           throw new Error(`Unsupported file type: ${fileType}`);
       }
@@ -316,6 +339,67 @@ class TextExtractor {
     } catch (error) {
       console.error('OCR failed:', error);
       return ''; // Return empty string if OCR fails
+    }
+  }
+
+  /**
+   * Extract text from audio files using OpenAI Whisper API
+   * @param {string} filePath - Path to the audio file
+   * @returns {Promise<string>} - Transcribed text
+   */
+  async extractAudio(filePath) {
+    console.log(`Extracting text from audio file: ${filePath}`);
+    
+    try {
+      const result = await this.audioTranscriber.transcribeAudio(filePath, {
+        response_format: 'verbose_json',
+        temperature: 0.1
+      });
+
+      if (!result.success) {
+        throw new Error(`Audio transcription failed: ${result.error}`);
+      }
+
+      const text = result.text || '';
+      console.log(`Audio transcription completed. Text length: ${text.length} characters`);
+      
+      // Add metadata information to the text for better AI analysis
+      let enrichedText = text;
+      
+      if (result.language) {
+        enrichedText = `[Audio Language: ${result.language}]\n${text}`;
+      }
+      
+      if (result.duration) {
+        enrichedText = `[Audio Duration: ${Math.round(result.duration)}s]\n${enrichedText}`;
+      }
+
+      // Add segments information if available (for timestamp analysis)
+      if (result.segments && result.segments.length > 0) {
+        const hasTimestamps = result.segments.some(s => s.start !== undefined && s.end !== undefined);
+        if (hasTimestamps) {
+          enrichedText += '\n\n[Transcript with Timestamps]\n';
+          enrichedText += result.segments.map(segment => 
+            `[${Math.round(segment.start)}s-${Math.round(segment.end)}s] ${segment.text}`
+          ).join('\n');
+        }
+      }
+
+      return enrichedText;
+
+    } catch (error) {
+      console.error('Error extracting audio:', error);
+      
+      // Provide helpful error messages
+      if (error.message.includes('File size')) {
+        throw new Error(`Audio file too large: ${error.message}. Please use files smaller than 25MB.`);
+      } else if (error.message.includes('API key')) {
+        throw new Error('OpenAI API key not configured. Audio transcription requires a valid OpenAI API key.');
+      } else if (error.message.includes('Unsupported')) {
+        throw new Error(`Unsupported audio format. Supported formats: ${this.audioTranscriber.getSupportedFormats().join(', ')}`);
+      }
+      
+      throw error;
     }
   }
 

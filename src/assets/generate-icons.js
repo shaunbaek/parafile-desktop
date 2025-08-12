@@ -284,9 +284,55 @@ async function createDMGBackground() {
   }
 }
 
-// Run if called directly
-if (require.main === module) {
-  generateIcons().catch(console.error);
+// Create a proper tray icon
+async function createTrayIcon() {
+  console.log('Creating tray icon...');
+  
+  const trayIconSVG = `
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <!-- Document icon in black for template -->
+  <rect x="3" y="2" width="8" height="11" fill="black"/>
+  <!-- Document fold -->
+  <path d="M 11 2 L 13 4 L 11 4 Z" fill="black"/>
+  <!-- Text lines -->
+  <rect x="5" y="5" width="4" height="1" fill="white"/>
+  <rect x="5" y="7" width="5" height="1" fill="white"/>
+  <rect x="5" y="9" width="3" height="1" fill="white"/>
+</svg>`;
+  
+  const trayIconPath = path.join(__dirname, 'tray-icon.svg');
+  const trayIconPngPath = path.join(__dirname, 'tray-icon.png');
+  
+  // Save SVG
+  fs.writeFileSync(trayIconPath, trayIconSVG);
+  
+  // Convert to PNG
+  try {
+    // Try sips first (macOS)
+    await execAsync(`sips -s format png "${trayIconPath}" --out "${trayIconPngPath}" --resampleHeightWidthMax 16`);
+    console.log('Created tray icon using sips');
+  } catch (error) {
+    try {
+      // Fallback to ImageMagick
+      await execAsync(`convert "${trayIconPath}" -resize 16x16 "${trayIconPngPath}"`);
+      console.log('Created tray icon using ImageMagick');
+    } catch (error2) {
+      console.log('Could not create tray icon:', error2.message);
+      // Copy a fallback icon
+      const fallback = path.join(__dirname, 'icons/icon_16x16.png');
+      if (fs.existsSync(fallback)) {
+        fs.copyFileSync(fallback, trayIconPngPath);
+        console.log('Used fallback icon for tray');
+      }
+    }
+  }
 }
 
-module.exports = { generateIcons };
+// Run if called directly
+if (require.main === module) {
+  generateIcons().then(() => {
+    return createTrayIcon();
+  }).catch(console.error);
+}
+
+module.exports = { generateIcons, createTrayIcon };

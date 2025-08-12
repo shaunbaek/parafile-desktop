@@ -85,7 +85,8 @@ class FileMonitor extends EventEmitter {
     const supportedExtensions = [
       '.pdf', '.docx', '.doc',  // Documents
       '.csv', '.xlsx', '.xls',  // Spreadsheets
-      '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'  // Images
+      '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp',  // Images
+      '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'  // Audio files
     ];
     
     if (supportedExtensions.includes(ext)) {

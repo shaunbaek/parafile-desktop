@@ -7,6 +7,7 @@ require('dotenv').config();
 const configManager = require('./config/configManager');
 const fileMonitor = require('./services/fileMonitor');
 const documentProcessor = require('./services/documentProcessor');
+
 const aiService = require('./services/aiService');
 const AutoUpdaterService = require('./services/autoUpdater');
 const textExtractor = require('./services/textExtractor');
@@ -129,12 +130,31 @@ function createTray() {
     
     try {
       trayIcon = nativeImage.createFromPath(iconPath);
+      
       if (trayIcon.isEmpty()) {
-        // Fallback to a simple template icon
+        console.log('Tray icon is empty, trying fallback');
+        // Try using a different icon as fallback
+        const fallbackPath = path.join(__dirname, 'assets/icons/icon_16x16.png');
+        trayIcon = nativeImage.createFromPath(fallbackPath);
+      }
+      
+      // Ensure the icon is the right size for tray
+      if (!trayIcon.isEmpty()) {
+        // Resize to 16x16 for tray use
+        trayIcon = trayIcon.resize({ width: 16, height: 16 });
+        
+        // For macOS, make it a template image so it adapts to dark/light mode
+        if (process.platform === 'darwin') {
+          trayIcon.setTemplateImage(true);
+        }
+      } else {
+        console.log('Could not load any tray icon, using system default');
+        // Let Electron use a default icon
         trayIcon = nativeImage.createEmpty();
       }
+      
     } catch (error) {
-      console.log('Using empty icon due to error:', error.message);
+      console.log('Error creating tray icon:', error.message);
       trayIcon = nativeImage.createEmpty();
     }
     
@@ -186,14 +206,63 @@ function showMainWindow() {
   }
 }
 
+// Add variables to track statistics
+let sessionStats = {
+  filesProcessed: 0,
+  successfulProcessing: 0,
+  lastProcessedFile: null,
+  lastProcessedTime: null,
+  startTime: new Date()
+};
+
 // Update tray menu based on monitoring status
 async function updateTrayMenu() {
   const config = await configManager.load();
   const watchedFolder = config.watched_folder ? path.basename(config.watched_folder) : 'No folder selected';
   
+  // Get recent processing logs
+  const logs = await configManager.loadLog();
+  const recentLogs = logs.slice(-5); // Last 5 processed files
+  
+  // Calculate success rate
+  const totalFiles = sessionStats.filesProcessed;
+  const successRate = totalFiles > 0 ? Math.round((sessionStats.successfulProcessing / totalFiles) * 100) : 0;
+  
+  // Build recent files submenu
+  const recentFilesSubmenu = recentLogs.length > 0 ? recentLogs.map(log => ({
+    label: `${log.success ? '✅' : '❌'} ${log.originalName.substring(0, 30)}${log.originalName.length > 30 ? '...' : ''}`,
+    sublabel: `→ ${log.parafileName || 'Failed'}`,
+    enabled: false
+  })) : [{ label: 'No files processed yet', enabled: false }];
+  
+  // Add "View Full Log" option
+  recentFilesSubmenu.push(
+    { type: 'separator' },
+    {
+      label: '📋 View Full Processing Log',
+      click: () => {
+        showMainWindow();
+        // Send message to renderer to open processing log
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send('show-processing-log');
+        }
+      }
+    }
+  );
+  
   const contextMenu = Menu.buildFromTemplate([
     {
+      label: 'ParaFile Desktop',
+      sublabel: `${isMonitoring ? '🟢 Active' : '🔴 Stopped'} • ${totalFiles} files processed`,
+      enabled: false,
+      icon: nativeImage.createFromPath(path.join(__dirname, 'assets/tray-icon.png')).resize({ width: 16, height: 16 })
+    },
+    {
+      type: 'separator'
+    },
+    {
       label: 'Open ParaFile',
+      accelerator: 'CmdOrCtrl+Shift+P',
       click: () => {
         showMainWindow();
       }
@@ -203,6 +272,7 @@ async function updateTrayMenu() {
     },
     {
       label: isMonitoring ? '⏸️ Stop Monitoring' : '▶️ Start Monitoring',
+      accelerator: 'CmdOrCtrl+Shift+M',
       click: async () => {
         if (isMonitoring) {
           fileMonitor.stop();
@@ -219,6 +289,7 @@ async function updateTrayMenu() {
                 
                 fileMonitor.start(config.watched_folder);
                 isMonitoring = true;
+                sessionStats.startTime = new Date(); // Reset session start time
               } catch (error) {
                 console.error('API key validation failed:', error);
                 // Show notification if main window exists
@@ -239,12 +310,31 @@ async function updateTrayMenu() {
       enabled: config.watched_folder ? true : false
     },
     {
-      label: `📁 ${watchedFolder}`,
+      type: 'separator'
+    },
+    {
+      label: `📁 Watching: ${watchedFolder}`,
+      sublabel: config.watched_folder || 'No folder selected',
       enabled: false
     },
     {
-      label: `📊 Status: ${isMonitoring ? 'Monitoring' : 'Stopped'}`,
+      label: `📊 Status: ${isMonitoring ? 'Active Monitoring' : 'Stopped'}`,
+      sublabel: isMonitoring ? 
+        `Started ${new Date(sessionStats.startTime).toLocaleTimeString()}` : 
+        'Click Start Monitoring to begin',
       enabled: false
+    },
+    {
+      label: `📈 Session Stats`,
+      sublabel: `${totalFiles} files • ${successRate}% success rate`,
+      enabled: false
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: '📄 Recent Files',
+      submenu: recentFilesSubmenu
     },
     {
       type: 'separator'
@@ -259,10 +349,20 @@ async function updateTrayMenu() {
       enabled: config.watched_folder ? true : false
     },
     {
+      label: 'Open Processing Log',
+      accelerator: 'CmdOrCtrl+Shift+L',
+      click: () => {
+        // Open the processing log HTML file
+        const logPath = path.join(__dirname, 'processing-log.html');
+        require('electron').shell.openPath(logPath);
+      }
+    },
+    {
       type: 'separator'
     },
     {
       label: 'Settings',
+      accelerator: 'CmdOrCtrl+,',
       click: () => {
         showMainWindow();
       }
@@ -272,6 +372,7 @@ async function updateTrayMenu() {
     },
     {
       label: 'Quit ParaFile',
+      accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
       click: () => {
         isQuitting = true;
         app.quit();
@@ -279,7 +380,52 @@ async function updateTrayMenu() {
     }
   ]);
   
+  // Update tray tooltip with current status
+  const tooltip = isMonitoring ? 
+    `ParaFile - Monitoring ${watchedFolder}\nProcessed: ${totalFiles} files (${successRate}% success)` :
+    `ParaFile - Stopped\nClick to start monitoring`;
+  
+  tray.setToolTip(tooltip);
+  
+  // Update tray icon to show status (on supported platforms)
+  try {
+    const iconPath = path.join(__dirname, 'assets/tray-icon.png');
+    if (isMonitoring) {
+      // For macOS, we can create a template icon that changes with dark/light mode
+      if (process.platform === 'darwin') {
+        const icon = nativeImage.createFromPath(iconPath);
+        icon.setTemplateImage(true);
+        tray.setImage(icon);
+      } else {
+        // For Windows/Linux, we can use a different colored icon or overlay
+        tray.setImage(iconPath);
+      }
+    } else {
+      // Use a dimmed/grayscale version when stopped
+      const icon = nativeImage.createFromPath(iconPath);
+      if (process.platform === 'darwin') {
+        icon.setTemplateImage(true);
+      }
+      tray.setImage(icon);
+    }
+  } catch (error) {
+    console.log('Could not update tray icon:', error.message);
+  }
+  
   tray.setContextMenu(contextMenu);
+}
+
+// Function to update session statistics
+function updateSessionStats(success, fileName) {
+  sessionStats.filesProcessed++;
+  if (success) {
+    sessionStats.successfulProcessing++;
+  }
+  sessionStats.lastProcessedFile = fileName;
+  sessionStats.lastProcessedTime = new Date();
+  
+  // Update tray menu to reflect new stats
+  updateTrayMenu();
 }
 
 // App ready
@@ -717,6 +863,9 @@ function setupFileMonitor() {
       } catch (logError) {
         console.error('Error logging processing result:', logError);
       }
+      
+      // Update session statistics and tray menu
+      updateSessionStats(result.success, result.fileName);
       
       mainWindow.webContents.send('file:processed', result);
       

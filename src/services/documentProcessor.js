@@ -73,6 +73,7 @@ class DocumentProcessor {
       // Initialize AI service with API key from config
       if (config.openai_api_key) {
         aiService.initialize(config.openai_api_key);
+        textExtractor.initialize(config.openai_api_key); // For audio transcription
       }
       
       // Extract text with retry mechanism

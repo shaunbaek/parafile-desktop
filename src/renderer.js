@@ -152,6 +152,12 @@ function setupIPCListeners() {
       );
     }
   });
+
+  // Handle show processing log from tray
+  ipcRenderer.on('show-processing-log', async (event) => {
+    // Open the processing log window
+    await ipcRenderer.invoke('window:openLog');
+  });
 }
 
 // Folder selection
