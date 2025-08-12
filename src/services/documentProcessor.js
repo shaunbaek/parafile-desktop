@@ -115,6 +115,7 @@ class DocumentProcessor {
       
       // Handle different file types for categorization
       let categorization;
+      let feedback = null; // Initialize feedback for variable extraction
       const isImageFile = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'].includes(
         path.extname(fileInfo.path).toLowerCase()
       );
@@ -137,9 +138,10 @@ class DocumentProcessor {
           throw new Error('No meaningful text extracted from document');
         }
         
-        // Get feedback for AI improvement
-        const feedback = await errorHandler.safeExecute(
-          () => configManager.getRelevantFeedback(extractedData.text, 'General'),
+        // Get feedback for AI improvement (including variable names)
+        const requiredVars = [];
+        feedback = await errorHandler.safeExecute(
+          () => configManager.getRelevantFeedback(extractedData.text, 'General', requiredVars),
           `Feedback retrieval for ${result.fileName}`,
           null
         );
@@ -201,7 +203,7 @@ class DocumentProcessor {
           const variable = config.variables.find(v => v.name === varName);
           if (variable) {
             const extractResult = await errorHandler.safeExecute(
-              () => aiService.extractVariable(extractedData.text, variable),
+              () => aiService.extractVariable(extractedData.text, variable, feedback),
               `Variable extraction for ${varName}`,
               { value: `<${varName.toUpperCase()}>` }
             );
@@ -242,6 +244,24 @@ class DocumentProcessor {
       errorHandler.logError(error, `Document processing for ${result.fileName}`);
       result.success = false;
       result.error = error.message;
+      result.errorStack = error.stack;
+      
+      // Determine processing step based on error context
+      if (error.message.includes('extract')) {
+        result.processingStep = 'text_extraction';
+      } else if (error.message.includes('categoriz')) {
+        result.processingStep = 'ai_categorization';
+      } else if (error.message.includes('variable')) {
+        result.processingStep = 'variable_extraction';
+      } else if (error.message.includes('API key') || error.message.includes('OpenAI')) {
+        result.processingStep = 'ai_categorization';
+      } else if (error.message.includes('file') || error.message.includes('access')) {
+        result.processingStep = 'file_access';
+      } else if (error.message.includes('organiz') || error.message.includes('move')) {
+        result.processingStep = 'file_organization';
+      } else {
+        result.processingStep = 'unknown';
+      }
       
       // Try to set a fallback category if not set
       if (!result.category) {

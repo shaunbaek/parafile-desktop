@@ -99,12 +99,27 @@
           </div>
 
           <!-- Drag and Drop Zone -->
-          <div id="dropZone" class="drop-zone" style="display: none;">
-            <div class="drop-zone-icon">📄</div>
-            <p>Drag and drop files here for instant processing</p>
-            <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-              Supported: PDF, Word, Excel, CSV, Images, Audio (MP3, WAV, etc.)
-            </p>
+          <!-- Live Processing Queue -->
+          <div id="processingQueue" class="processing-queue" style="display: none;">
+            <div class="queue-header">
+              <h4 style="margin: 0; color: var(--primary); font-family: 'Libre Baskerville', Georgia, serif;">
+                Live Processing Queue
+              </h4>
+              <div class="queue-stats">
+                <span id="queueCount" class="queue-count">0 files today</span>
+                <span id="queueCost" class="queue-cost">$0.00</span>
+              </div>
+            </div>
+            
+            <div id="queueList" class="queue-list">
+              <div class="queue-item-placeholder">
+                <div class="placeholder-icon">⏳</div>
+                <p>No files currently processing</p>
+                <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                  Files will appear here when added to the monitored folder
+                </p>
+              </div>
+            </div>
           </div>
 
           <!-- Processing Log -->
@@ -755,6 +770,58 @@
           <div class="search-modal-tips">
             <span>💡 Try: "contracts from 2024", "invoices over $1000", "documents by John Smith"</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Queue Error Details Modal -->
+    <div id="queueErrorModal" class="modal">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>🚨 Processing Error Details</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">File</label>
+            <p id="errorFileName" style="font-family: monospace; background: var(--tertiary); padding: 10px; border-radius: 8px; margin-top: 5px;"></p>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Error Message</label>
+            <div id="errorMessage" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-top: 5px; word-break: break-word;"></div>
+          </div>
+          
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Processing Step</label>
+            <p id="errorStep" style="margin-top: 5px; padding: 8px; background: var(--tertiary); border-radius: 6px;"></p>
+          </div>
+
+          <div class="form-group" id="errorStackGroup" style="display: none;">
+            <label style="font-weight: bold; color: var(--primary);">Technical Details</label>
+            <details style="margin-top: 5px;">
+              <summary style="cursor: pointer; color: var(--primary); font-size: 14px;">Show technical details</summary>
+              <pre id="errorStack" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;"></pre>
+            </details>
+          </div>
+
+          <div class="form-group">
+            <label style="font-weight: bold; color: var(--primary);">Suggested Actions</label>
+            <ul id="errorSuggestions" style="margin-top: 5px; padding-left: 20px; color: #666;">
+              <li>Check if the file is accessible and not corrupted</li>
+              <li>Ensure you have a valid OpenAI API key configured</li>
+              <li>Verify the file format is supported</li>
+              <li>Try processing the file again manually</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary cancel-btn">Close</button>
+          <button type="button" class="btn btn-primary" id="rerunFileBtn">
+            🔄 Try Again
+          </button>
         </div>
       </div>
     </div>

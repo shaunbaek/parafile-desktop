@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   setupEventListeners();
   setupIPCListeners();
-  initializeDragAndDrop();
+  initializeProcessingQueue();
   updateSearchShortcut();
 });
 
@@ -175,7 +175,7 @@ async function selectFolder() {
     
     // Show drop zone when monitoring
     const isRunning = await ipcRenderer.invoke('monitor:status');
-    document.getElementById('dropZone').style.display = isRunning ? 'block' : 'none';
+    document.getElementById('processingQueue').style.display = isRunning ? 'block' : 'none';
   }
 }
 
@@ -189,7 +189,7 @@ async function toggleMonitoring() {
     btn.innerHTML = 'Start Monitoring';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
-    document.getElementById('dropZone').style.display = 'none';
+    document.getElementById('processingQueue').style.display = 'none';
   } else {
     if (!currentConfig.watched_folder) {
       showNotification('Error', 'Please select a folder to monitor first', 'error');
@@ -221,7 +221,7 @@ async function toggleMonitoring() {
       btn.classList.remove('btn-success');
       btn.classList.add('btn-danger');
       btn.disabled = false;
-      document.getElementById('dropZone').style.display = 'block';
+      document.getElementById('processingQueue').style.display = 'block';
       
       showNotification('Success', 'Monitoring started successfully', 'success');
       
@@ -245,14 +245,14 @@ function updateMonitorStatus(isRunning) {
     btn.innerHTML = 'Stop Monitoring';
     btn.classList.remove('btn-success');
     btn.classList.add('btn-danger');
-    document.getElementById('dropZone').style.display = 'block';
+    document.getElementById('processingQueue').style.display = 'block';
   } else {
     statusDot.classList.remove('running');
     statusText.textContent = 'Not running';
     btn.innerHTML = 'Start Monitoring';
     btn.classList.remove('btn-danger');
     btn.classList.add('btn-success');
-    document.getElementById('dropZone').style.display = 'none';
+    document.getElementById('processingQueue').style.display = 'none';
   }
 }
 
@@ -1021,6 +1021,38 @@ function setupModalControls() {
       statusEl.className = 'api-key-status error';
     }
   });
+
+  // Queue Error Modal handlers
+  const queueErrorModal = document.getElementById('queueErrorModal');
+  const rerunBtn = document.getElementById('rerunFileBtn');
+  
+  if (queueErrorModal && rerunBtn) {
+    // Close error modal on outside click
+    queueErrorModal.addEventListener('click', (e) => {
+      if (e.target === queueErrorModal) {
+        queueErrorModal.style.display = 'none';
+      }
+    });
+    
+    // Close button handler
+    const queueErrorCloseBtn = queueErrorModal.querySelector('.close-btn');
+    if (queueErrorCloseBtn) {
+      queueErrorCloseBtn.addEventListener('click', () => {
+        queueErrorModal.style.display = 'none';
+      });
+    }
+    
+    // Cancel button handler
+    const queueErrorCancelBtn = queueErrorModal.querySelector('.cancel-btn');
+    if (queueErrorCancelBtn) {
+      queueErrorCancelBtn.addEventListener('click', () => {
+        queueErrorModal.style.display = 'none';
+      });
+    }
+    
+    // Rerun button handler
+    rerunBtn.addEventListener('click', rerunFailedFile);
+  }
 }
 
 // Save variable helper function
@@ -1196,47 +1228,328 @@ function showNotification(title, message, type = 'success') {
   }, 4000);
 }
 
-// Initialize drag and drop
-function initializeDragAndDrop() {
-  const dropZone = document.getElementById('dropZone');
+// Initialize processing queue
+function initializeProcessingQueue() {
+  // Initialize queue stats
+  let dailyCost = 0;
+  let processedToday = 0;
   
-  // Prevent default drag behaviors
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, preventDefaults, false);
-    document.body.addEventListener(eventName, preventDefaults, false);
+  // Track daily costs from processing log
+  updateQueueStats();
+  
+  // Listen for new files being processed
+  ipcRenderer.on('file:processing', (event, data) => {
+    addToProcessingQueue(data);
   });
   
-  // Highlight drop zone when item is dragged over it
-  ['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, highlight, false);
+  // Listen for processing completion
+  ipcRenderer.on('file:processed', (event, result) => {
+    updateQueueItem(result);
+    updateQueueStats();
   });
+}
+
+// Add item to processing queue
+function addToProcessingQueue(data) {
+  const queueList = document.getElementById('queueList');
+  const placeholder = queueList.querySelector('.queue-item-placeholder');
   
-  ['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, unhighlight, false);
-  });
+  // Remove placeholder if it exists
+  if (placeholder) {
+    placeholder.remove();
+  }
   
-  // Handle dropped files
-  dropZone.addEventListener('drop', handleDrop, false);
-}
-
-function preventDefaults(e) {
-  e.preventDefault();
-  e.stopPropagation();
-}
-
-function highlight(e) {
-  document.getElementById('dropZone').classList.add('drag-over');
-}
-
-function unhighlight(e) {
-  document.getElementById('dropZone').classList.remove('drag-over');
-}
-
-async function handleDrop(e) {
-  const dt = e.dataTransfer;
-  const files = dt.files;
+  // Create queue item
+  const queueItem = document.createElement('div');
+  queueItem.className = 'queue-item';
+  queueItem.id = `queue-item-${data.filename}`;
   
-  handleFiles(files);
+  // Store original file data for potential rerun
+  queueItem.dataset.filePath = data.path;
+  queueItem.dataset.fileType = data.type;
+  queueItem.dataset.fileName = data.filename;
+  
+  queueItem.innerHTML = `
+    <div class="queue-item-status processing">⏳</div>
+    <div class="queue-item-info">
+      <div class="queue-item-name">${data.filename}</div>
+      <div class="queue-item-progress">Starting analysis...</div>
+    </div>
+    <div class="queue-item-cost">~$0.00</div>
+  `;
+  
+  // Add to top of queue
+  queueList.insertBefore(queueItem, queueList.firstChild);
+  
+  // Remove old items if queue gets too long (keep last 10)
+  const items = queueList.querySelectorAll('.queue-item');
+  if (items.length > 10) {
+    items[items.length - 1].remove();
+  }
+}
+
+// Update queue item when processing completes
+function updateQueueItem(result) {
+  const queueItem = document.getElementById(`queue-item-${result.fileName}`);
+  if (!queueItem) return;
+  
+  const status = queueItem.querySelector('.queue-item-status');
+  const progress = queueItem.querySelector('.queue-item-progress');
+  const cost = queueItem.querySelector('.queue-item-cost');
+  
+  if (result.success) {
+    status.className = 'queue-item-status completed';
+    status.innerHTML = '✓';
+    progress.textContent = `Organized → ${result.category}`;
+    
+    const totalCost = result.tokenUsage?.totalCost || 0;
+    cost.textContent = `$${totalCost.toFixed(4)}`;
+    
+    // Remove success items after 10 seconds
+    setTimeout(() => {
+      if (queueItem.parentNode) {
+        queueItem.remove();
+        showQueuePlaceholderIfEmpty();
+      }
+    }, 10000);
+  } else {
+    status.className = 'queue-item-status failed';
+    status.innerHTML = '⚠️';
+    progress.textContent = 'Click to see error details';
+    cost.textContent = '$0.00';
+    
+    // Store error details for display
+    queueItem.dataset.errorMessage = result.error || 'Unknown error occurred';
+    queueItem.dataset.errorStack = result.errorStack || '';
+    queueItem.dataset.processingStep = result.processingStep || 'unknown';
+    
+    // Add click handler for error details
+    queueItem.style.cursor = 'pointer';
+    queueItem.addEventListener('click', () => showQueueErrorDetails(queueItem));
+    
+    // Add hover effect for failed items
+    queueItem.classList.add('queue-item-error');
+    
+    // Failed items stay longer (30 seconds) to give user time to investigate
+    setTimeout(() => {
+      if (queueItem.parentNode) {
+        queueItem.remove();
+        showQueuePlaceholderIfEmpty();
+      }
+    }, 30000);
+  }
+}
+
+// Show placeholder if queue is empty
+function showQueuePlaceholderIfEmpty() {
+  const remainingItems = document.querySelectorAll('.queue-item');
+  if (remainingItems.length === 0) {
+    showQueuePlaceholder();
+  }
+}
+
+// Update queue statistics
+function updateQueueStats() {
+  const processingLogs = JSON.parse(localStorage.getItem('processing-logs') || '[]');
+  const today = new Date().toDateString();
+  
+  // Calculate today's stats
+  const todayLogs = processingLogs.filter(log => 
+    new Date(log.timestamp).toDateString() === today
+  );
+  
+  const todayCount = todayLogs.length;
+  const todayCost = todayLogs.reduce((sum, log) => 
+    sum + (log.tokenUsage?.totalCost || 0), 0
+  );
+  
+  // Update UI
+  document.getElementById('queueCount').textContent = `${todayCount} files today`;
+  document.getElementById('queueCost').textContent = `$${todayCost.toFixed(4)}`;
+}
+
+// Show placeholder when queue is empty
+function showQueuePlaceholder() {
+  const queueList = document.getElementById('queueList');
+  if (queueList.querySelectorAll('.queue-item').length === 0) {
+    queueList.innerHTML = `
+      <div class="queue-item-placeholder">
+        <div class="placeholder-icon">⏳</div>
+        <p>No files currently processing</p>
+        <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+          Files will appear here when added to the monitored folder
+        </p>
+      </div>
+    `;
+  }
+}
+
+// Show error details modal for queue item
+function showQueueErrorDetails(queueItem) {
+  const modal = document.getElementById('queueErrorModal');
+  const fileName = queueItem.dataset.fileName;
+  const errorMessage = queueItem.dataset.errorMessage;
+  const errorStack = queueItem.dataset.errorStack;
+  const processingStep = queueItem.dataset.processingStep;
+  
+  // Populate modal content
+  document.getElementById('errorFileName').textContent = fileName;
+  document.getElementById('errorMessage').textContent = errorMessage;
+  document.getElementById('errorStep').textContent = getProcessingStepDescription(processingStep);
+  
+  // Show technical details if available
+  const stackGroup = document.getElementById('errorStackGroup');
+  if (errorStack && errorStack.trim()) {
+    document.getElementById('errorStack').textContent = errorStack;
+    stackGroup.style.display = 'block';
+  } else {
+    stackGroup.style.display = 'none';
+  }
+  
+  // Update suggestions based on error type
+  updateErrorSuggestions(errorMessage, processingStep);
+  
+  // Store queue item reference for rerun functionality
+  modal.dataset.queueItemId = queueItem.id;
+  
+  // Show modal
+  modal.style.display = 'block';
+}
+
+// Get human-readable description for processing step
+function getProcessingStepDescription(step) {
+  const stepDescriptions = {
+    'file_access': 'Accessing the file',
+    'text_extraction': 'Extracting text from document',
+    'audio_transcription': 'Transcribing audio content',
+    'video_processing': 'Processing video content',
+    'ai_categorization': 'AI document categorization',
+    'variable_extraction': 'Extracting document variables',
+    'file_organization': 'Organizing and renaming file',
+    'unknown': 'Unknown processing step'
+  };
+  
+  return stepDescriptions[step] || stepDescriptions['unknown'];
+}
+
+// Update error suggestions based on error type
+function updateErrorSuggestions(errorMessage, processingStep) {
+  const suggestionsList = document.getElementById('errorSuggestions');
+  let suggestions = [];
+  
+  const error = errorMessage.toLowerCase();
+  
+  if (error.includes('api key') || error.includes('authentication')) {
+    suggestions = [
+      'Check your OpenAI API key in Settings',
+      'Ensure the API key has sufficient credits',
+      'Verify the API key is correctly configured'
+    ];
+  } else if (error.includes('file not found') || error.includes('access')) {
+    suggestions = [
+      'Ensure the file still exists at the original location',
+      'Check file permissions and accessibility',
+      'Verify the file is not locked by another application'
+    ];
+  } else if (error.includes('unsupported') || error.includes('format')) {
+    suggestions = [
+      'Check if the file format is supported',
+      'Try converting the file to a supported format',
+      'Ensure the file is not corrupted'
+    ];
+  } else if (error.includes('network') || error.includes('timeout')) {
+    suggestions = [
+      'Check your internet connection',
+      'Try again in a few moments',
+      'Verify OpenAI services are accessible'
+    ];
+  } else if (processingStep === 'text_extraction') {
+    suggestions = [
+      'Ensure the document contains readable text',
+      'Check if the file is password protected',
+      'Try with a different document format'
+    ];
+  } else if (processingStep === 'ai_categorization') {
+    suggestions = [
+      'Check your OpenAI API key and credits',
+      'Verify your categories are properly configured',
+      'Try with a simpler document first'
+    ];
+  } else {
+    suggestions = [
+      'Check the file is accessible and not corrupted',
+      'Ensure you have a valid OpenAI API key configured',
+      'Verify the file format is supported',
+      'Try processing the file again'
+    ];
+  }
+  
+  suggestionsList.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
+}
+
+// Manual rerun functionality
+async function rerunFailedFile() {
+  const modal = document.getElementById('queueErrorModal');
+  const queueItemId = modal.dataset.queueItemId;
+  const queueItem = document.getElementById(queueItemId);
+  
+  if (!queueItem) {
+    showNotification('Error', 'Could not find the file to rerun', 'error');
+    return;
+  }
+  
+  const filePath = queueItem.dataset.filePath;
+  const fileType = queueItem.dataset.fileType;
+  const fileName = queueItem.dataset.fileName;
+  
+  // Close the modal
+  modal.style.display = 'none';
+  
+  // Reset the queue item to processing state
+  const status = queueItem.querySelector('.queue-item-status');
+  const progress = queueItem.querySelector('.queue-item-progress');
+  const cost = queueItem.querySelector('.queue-item-cost');
+  
+  status.className = 'queue-item-status processing';
+  status.innerHTML = '⏳';
+  progress.textContent = 'Retrying processing...';
+  cost.textContent = '~$0.00';
+  
+  // Remove error styling and handlers
+  queueItem.classList.remove('queue-item-error');
+  queueItem.style.cursor = 'default';
+  queueItem.removeEventListener('click', showQueueErrorDetails);
+  
+  // Clear error data
+  delete queueItem.dataset.errorMessage;
+  delete queueItem.dataset.errorStack;
+  delete queueItem.dataset.processingStep;
+  
+  try {
+    // Request manual processing via IPC
+    const result = await ipcRenderer.invoke('file:reprocess', {
+      path: filePath,
+      type: fileType,
+      filename: fileName
+    });
+    
+    if (result.success) {
+      showNotification('Success', `${fileName} reprocessed successfully`, 'success');
+    } else {
+      showNotification('Error', `Failed to reprocess ${fileName}: ${result.error}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error during manual rerun:', error);
+    showNotification('Error', `Failed to reprocess ${fileName}`, 'error');
+    
+    // Reset back to error state
+    status.className = 'queue-item-status failed';
+    status.innerHTML = '⚠️';
+    progress.textContent = 'Click to see error details';
+    queueItem.classList.add('queue-item-error');
+    queueItem.style.cursor = 'pointer';
+    queueItem.addEventListener('click', () => showQueueErrorDetails(queueItem));
+  }
 }
 
 async function handleFiles(files) {

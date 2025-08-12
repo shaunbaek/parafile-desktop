@@ -26,7 +26,7 @@ let isMonitoring = false;
 let tray = null;
 let isQuitting = false;
 
-const createWindow = () => {
+let createWindow = () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -837,12 +837,73 @@ function setupIPCHandlers() {
     createLogWindow();
     return true;
   });
+
+  // Manual file reprocessing
+  ipcMain.handle('file:reprocess', async (event, fileData) => {
+    try {
+      const config = await configManager.load();
+      
+      // Create file info object for reprocessing
+      const fileInfo = {
+        path: fileData.path,
+        type: fileData.type,
+        fileName: fileData.filename
+      };
+      
+      // Process the file
+      const result = await documentProcessor.processDocument(fileInfo, config);
+      
+      // Log the reprocessing result
+      await configManager.addLogEntry({
+        originalName: result.fileName,
+        parafileName: result.newName,
+        category: result.category,
+        reasoning: result.reasoning + ' (Manual rerun)',
+        success: result.success,
+        tokenUsage: result.tokenUsage
+      });
+      
+      // Update session statistics
+      updateSessionStats(result.success, result.fileName);
+      
+      // Notify main window of the result
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow) {
+        mainWindow.webContents.send('file:processed', result);
+      }
+      }
+      
+      // Notify log window if it exists
+      if (logWindow && !logWindow.isDestroyed()) {
+        logWindow.webContents.send('log:updated');
+      }
+      
+      return { success: true, result: result };
+    } catch (error) {
+      console.error('Error during manual file reprocessing:', error);
+      return { 
+        success: false, 
+        error: error.message,
+        errorStack: error.stack,
+        processingStep: error.processingStep || 'unknown'
+      };
+    }
+  });
 }
 
 // Setup file monitor event handlers
 function setupFileMonitor() {
   fileMonitor.on('file-detected', async (fileInfo) => {
     try {
+      // Notify UI that file processing has started
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('file:processing', {
+          filename: path.basename(fileInfo.path),
+          path: fileInfo.path,
+          type: fileInfo.type
+        });
+      }
+      
       const config = await configManager.load();
       const result = await documentProcessor.processDocument(fileInfo, config);
       
@@ -868,7 +929,9 @@ function setupFileMonitor() {
       // Update session statistics and tray menu
       updateSessionStats(result.success, result.fileName);
       
-      mainWindow.webContents.send('file:processed', result);
+      if (mainWindow) {
+        mainWindow.webContents.send('file:processed', result);
+      }
       
       if (result.success) {
         console.log(`Successfully processed: ${result.fileName} -> ${result.newName}`);
@@ -887,7 +950,9 @@ function setupFileMonitor() {
       }
     } catch (error) {
       console.error('Error processing document:', error);
-      mainWindow.webContents.send('monitor:error', error.message);
+      if (mainWindow) {
+        mainWindow.webContents.send('monitor:error', error.message);
+      }
     }
   });
 

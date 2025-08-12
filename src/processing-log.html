@@ -47,7 +47,7 @@
                     <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">ParaFiled Name</th>
                     <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Category</th>
                     <th style="padding: 15px 12px; text-align: left; font-weight: 600; color: var(--primary);">Reasoning</th>
-                    <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Tokens</th>
+                    <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary); font-size: 16px;">💰 Cost</th>
                     <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Date</th>
                     <th style="padding: 15px 12px; text-align: center; font-weight: 600; color: var(--primary);">Status</th>
                   </tr>
@@ -108,13 +108,13 @@
               <p id="viewTimestamp" style="margin-top: 5px; color: #666;"></p>
             </div>
             
-            <!-- Token Usage Information -->
+            <!-- Processing Cost Information -->
             <div id="viewTokenUsage" class="form-group" style="display: none;">
-              <label style="font-weight: bold; color: var(--primary);">Token Usage & Cost</label>
+              <label style="font-weight: bold; color: var(--primary); font-size: 16px;">💰 Processing Cost</label>
               <div style="background: var(--tertiary); padding: 15px; border-radius: 8px; margin-top: 5px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                  <span><strong>Total Tokens:</strong> <span id="totalTokens">-</span></span>
-                  <span><strong>Estimated Cost:</strong> $<span id="totalCost">0.00</span></span>
+                  <span style="font-size: 18px; font-weight: bold; color: var(--primary);"><strong>Total Cost:</strong> $<span id="totalCost">0.00</span></span>
+                  <span style="font-size: 14px; color: #666;"><strong>Tokens:</strong> <span id="totalTokens">-</span></span>
                 </div>
                 <div id="operationsList" style="margin-top: 15px;">
                   <h5 style="margin: 0 0 8px 0; color: var(--primary);">Operations Breakdown:</h5>

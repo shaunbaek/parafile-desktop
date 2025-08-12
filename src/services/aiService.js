@@ -150,20 +150,55 @@ Respond with a JSON object containing:
     }
   }
 
-  async extractVariable(text, variable) {
+  async extractVariable(text, variable, feedback = null) {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
+    }
+
+    // Include variable-specific feedback learning
+    let feedbackContext = '';
+    if (feedback && feedback.variablePatterns && feedback.variablePatterns[variable.name]) {
+      const varPattern = feedback.variablePatterns[variable.name];
+      
+      if (varPattern.commonMistakes.length > 0) {
+        feedbackContext += `\n\nIMPORTANT LEARNING FROM USER CORRECTIONS FOR "${variable.name}":
+Common mistakes to avoid:
+${varPattern.commonMistakes.map(m => 
+  `- DON'T extract "${m.pattern.split('_to_')[0]}" when it should be "${m.pattern.split('_to_')[1]}" (corrected ${m.count} times)
+    Reasons: ${m.reasons.join(', ')}`
+).join('\n')}`;
+      }
+
+      if (varPattern.successfulPatterns.length > 0) {
+        feedbackContext += `\n\nSuccessful extraction patterns:
+${varPattern.successfulPatterns.map(p => 
+  `- In ${p.documentType} documents, look for: "${p.context}" → "${p.correctValue}"`
+).join('\n')}`;
+      }
+    }
+
+    // Add echo prevention data
+    if (feedback && feedback.echoPreventionData && feedback.echoPreventionData.similarDocuments.length > 0) {
+      feedbackContext += `\n\nSIMILAR DOCUMENTS CONTEXT (to maintain consistency):`;
+      feedback.echoPreventionData.similarDocuments.forEach(doc => {
+        if (doc.commonPatterns[variable.name]) {
+          const pattern = doc.commonPatterns[variable.name];
+          feedbackContext += `\n- Similar document had "${variable.name}" corrected from "${pattern.originalValue}" to "${pattern.correctedValue}"`;
+          feedbackContext += `\n  Reason: ${pattern.correctionReason}`;
+        }
+      });
     }
 
     const systemPrompt = `You are a document information extraction assistant. Extract the value for the specified variable from the document text.
 
 Variable: ${variable.name}
-Description: ${variable.description}
+Description: ${variable.description}${feedbackContext}
 
 Respond with a JSON object containing:
 - value: The extracted value (or null if not found)
 - confidence: A number from 0 to 100 indicating your confidence level
-- context: A brief snippet showing where the value was found`;
+- context: A brief snippet showing where the value was found
+- consideringFeedback: Boolean indicating if past corrections influenced this extraction`;
 
     try {
       // Use intelligent model selection for variable extraction
@@ -212,7 +247,7 @@ Respond with a JSON object containing:
     }
   }
 
-  async generateFilename(namingPattern, variables, documentText) {
+  async generateFilename(namingPattern, variables, documentText, feedback = null) {
     const variableValues = {};
     
     const requiredVariables = this.extractVariablesFromPattern(namingPattern);
@@ -224,7 +259,7 @@ Respond with a JSON object containing:
       
       const variable = variables.find(v => v.name === varName);
       if (variable) {
-        const result = await this.extractVariable(documentText, variable);
+        const result = await this.extractVariable(documentText, variable, feedback);
         variableValues[varName] = result.value || `<${varName.toUpperCase()}>`;
       } else {
         variableValues[varName] = `<${varName.toUpperCase()}>`;

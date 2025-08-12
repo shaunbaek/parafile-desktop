@@ -230,8 +230,8 @@ function renderTokenUsage(tokenUsage) {
   
   return `
     <div style="text-align: center;">
-      <div style="font-weight: 500;">${tokens}</div>
-      <div style="color: #666; font-size: 10px;">${cost}</div>
+      <div style="font-weight: bold; font-size: 16px; color: var(--primary);">${cost}</div>
+      <div style="color: #666; font-size: 11px;">${tokens} tokens</div>
     </div>
   `;
 }
@@ -288,8 +288,8 @@ function showViewMode(log) {
       const operationsHtml = log.tokenUsage.operations.map(op => `
         <div style="margin-bottom: 4px;">
           • <strong>${op.operation.replace(/_/g, ' ')}:</strong> 
-          ${op.tokens.toLocaleString()} tokens 
-          ($${op.cost.toFixed(4)}) 
+          <span style="font-weight: bold; color: var(--primary);">$${op.cost.toFixed(4)}</span>
+          <span style="color: #666; font-size: 12px;">(${op.tokens.toLocaleString()} tokens)</span>
           <span style="color: #666;">[${op.model}]</span>
         </div>
       `).join('');

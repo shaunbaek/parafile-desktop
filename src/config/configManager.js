@@ -354,26 +354,140 @@ class ConfigManager {
     return null;
   }
 
+  // Add variable correction to log entry
+  async addVariableCorrection(logId, variableCorrection) {
+    const logs = await this.loadLog();
+    const index = logs.findIndex(log => log.id === logId);
+    
+    if (index >= 0) {
+      if (!logs[index].variableCorrections) {
+        logs[index].variableCorrections = [];
+      }
+      
+      const correctionEntry = {
+        variableName: variableCorrection.variableName,
+        originalValue: variableCorrection.originalValue,
+        correctedValue: variableCorrection.correctedValue,
+        feedback: variableCorrection.feedback,
+        confidence: variableCorrection.confidence,
+        timestamp: new Date().toISOString()
+      };
+      
+      logs[index].variableCorrections.push(correctionEntry);
+      logs[index].corrected = true;
+      
+      await this.saveLog(logs);
+      
+      // Store feedback for learning with full context
+      await this.storeFeedback({
+        documentId: logId,
+        variableName: variableCorrection.variableName,
+        extractedValue: variableCorrection.originalValue,
+        correctedValue: variableCorrection.correctedValue,
+        variableFeedback: variableCorrection.feedback,
+        originalName: logs[index].originalName,
+        documentContext: variableCorrection.documentContext,
+        extractionContext: variableCorrection.extractionContext,
+        aiConfidence: variableCorrection.confidence,
+        userConfidence: variableCorrection.userConfidence || 95,
+        timestamp: correctionEntry.timestamp
+      });
+      
+      return logs[index];
+    }
+    
+    return null;
+  }
+
   // Feedback Learning System
   async loadFeedback() {
     try {
       const data = await fs.readFile(this.feedbackPath, 'utf8');
-      return JSON.parse(data);
+      const feedback = JSON.parse(data);
+      
+      // Migrate old format to new format if needed
+      if (!feedback.version || feedback.version < "2.0") {
+        return this.migrateFeedbackFormat(feedback);
+      }
+      
+      return feedback;
     } catch (error) {
       if (error.code === 'ENOENT') {
         return {
+          version: "2.0",
           categoryCorrections: [],
           nameCorrections: [],
-          patterns: {}
+          variableCorrections: [],
+          patterns: {},
+          learning: {
+            confidenceCalibration: {},
+            contentPatterns: {},
+            improvementMetrics: {
+              totalCorrections: 0,
+              accuracyTrend: []
+            }
+          },
+          documentContexts: {},
+          metadata: {
+            totalCorrections: 0,
+            learningRate: 0.0,
+            lastUpdated: new Date().toISOString()
+          }
         };
       }
       console.error('Error loading feedback:', error);
       return {
+        version: "2.0",
         categoryCorrections: [],
         nameCorrections: [],
-        patterns: {}
+        variableCorrections: [],
+        patterns: {},
+        learning: {
+          confidenceCalibration: {},
+          contentPatterns: {},
+          improvementMetrics: {
+            totalCorrections: 0,
+            accuracyTrend: []
+          }
+        },
+        documentContexts: {},
+        metadata: {
+          totalCorrections: 0,
+          learningRate: 0.0,
+          lastUpdated: new Date().toISOString()
+        }
       };
     }
+  }
+
+  // Migrate old feedback format to new enhanced format
+  migrateFeedbackFormat(oldFeedback) {
+    const newFeedback = {
+      version: "2.0",
+      categoryCorrections: oldFeedback.categoryCorrections || [],
+      nameCorrections: oldFeedback.nameCorrections || [],
+      variableCorrections: [],
+      patterns: oldFeedback.patterns || {},
+      learning: {
+        confidenceCalibration: {},
+        contentPatterns: {},
+        improvementMetrics: {
+          totalCorrections: (oldFeedback.categoryCorrections?.length || 0) + 
+                           (oldFeedback.nameCorrections?.length || 0),
+          accuracyTrend: []
+        }
+      },
+      documentContexts: {},
+      metadata: {
+        totalCorrections: (oldFeedback.categoryCorrections?.length || 0) + 
+                         (oldFeedback.nameCorrections?.length || 0),
+        learningRate: 0.0,
+        lastUpdated: new Date().toISOString()
+      }
+    };
+    
+    console.log('Migrated feedback to enhanced format v2.0');
+    return newFeedback;
   }
 
   async saveFeedback(feedback) {
@@ -424,19 +538,195 @@ class ConfigManager {
         timestamp: feedbackData.timestamp
       });
     }
+
+    // Store variable corrections (NEW FEATURE)
+    if (feedbackData.variableFeedback) {
+      const variableCorrection = {
+        documentId: feedbackData.documentId,
+        variableName: feedbackData.variableName,
+        extractedValue: feedbackData.extractedValue,
+        correctedValue: feedbackData.correctedValue,
+        feedback: feedbackData.variableFeedback,
+        documentName: feedbackData.originalName,
+        documentContext: feedbackData.documentContext,
+        extractionContext: feedbackData.extractionContext,
+        aiConfidence: feedbackData.aiConfidence,
+        userConfidence: feedbackData.userConfidence || 95,
+        timestamp: feedbackData.timestamp,
+        sessionId: this.generateSessionId()
+      };
+
+      feedback.variableCorrections.push(variableCorrection);
+
+      // Store document context for learning (prevents echo chamber)
+      if (feedbackData.documentContext && feedbackData.documentId) {
+        feedback.documentContexts[feedbackData.documentId] = {
+          content: feedbackData.documentContext,
+          structure: this.analyzeDocumentStructure(feedbackData.documentContext),
+          keywords: this.extractKeywords(feedbackData.documentContext),
+          variableExtractions: feedback.documentContexts[feedbackData.documentId]?.variableExtractions || {},
+          feedbackHistory: feedback.documentContexts[feedbackData.documentId]?.feedbackHistory || []
+        };
+
+        // Add this specific variable extraction to the context
+        feedback.documentContexts[feedbackData.documentId].variableExtractions[feedbackData.variableName] = {
+          originalValue: feedbackData.extractedValue,
+          correctedValue: feedbackData.correctedValue,
+          extractionContext: feedbackData.extractionContext,
+          confidence: feedbackData.aiConfidence,
+          correctionReason: feedbackData.variableFeedback
+        };
+
+        // Track the complete feedback history to prevent echo chambers
+        feedback.documentContexts[feedbackData.documentId].feedbackHistory.push({
+          type: 'variable_correction',
+          variableName: feedbackData.variableName,
+          change: `${feedbackData.extractedValue} → ${feedbackData.correctedValue}`,
+          reason: feedbackData.variableFeedback,
+          timestamp: feedbackData.timestamp,
+          sessionId: variableCorrection.sessionId
+        });
+      }
+
+      // Update variable learning patterns
+      const variableKey = feedbackData.variableName;
+      if (!feedback.learning.contentPatterns[variableKey]) {
+        feedback.learning.contentPatterns[variableKey] = {
+          totalCorrections: 0,
+          commonMistakes: {},
+          successfulPatterns: {},
+          contextPatterns: [],
+          improvementRate: 0
+        };
+      }
+
+      const pattern = feedback.learning.contentPatterns[variableKey];
+      pattern.totalCorrections++;
+
+      // Track common mistakes to avoid repeat errors
+      const mistakeKey = `${feedbackData.extractedValue}_to_${feedbackData.correctedValue}`;
+      if (!pattern.commonMistakes[mistakeKey]) {
+        pattern.commonMistakes[mistakeKey] = {
+          count: 0,
+          contexts: [],
+          feedbackReasons: []
+        };
+      }
+      pattern.commonMistakes[mistakeKey].count++;
+      pattern.commonMistakes[mistakeKey].contexts.push(feedbackData.extractionContext);
+      pattern.commonMistakes[mistakeKey].feedbackReasons.push(feedbackData.variableFeedback);
+
+      // Identify successful extraction patterns for future use
+      if (feedbackData.extractionContext) {
+        pattern.contextPatterns.push({
+          context: feedbackData.extractionContext,
+          correctValue: feedbackData.correctedValue,
+          documentStructure: this.analyzeDocumentStructure(feedbackData.documentContext || ''),
+          timestamp: feedbackData.timestamp
+        });
+      }
+    }
+
+    // Update metadata and learning metrics
+    feedback.metadata.totalCorrections++;
+    feedback.metadata.lastUpdated = new Date().toISOString();
     
+    // Calculate learning rate (improvement over time)
+    const recentCorrections = this.getRecentCorrections(feedback, 30); // Last 30 days
+    const olderCorrections = this.getOlderCorrections(feedback, 30, 60); // 30-60 days ago
+    
+    if (olderCorrections.length > 0) {
+      feedback.metadata.learningRate = Math.max(0, 
+        (olderCorrections.length - recentCorrections.length) / olderCorrections.length
+      );
+    }
+
     await this.saveFeedback(feedback);
     return feedback;
   }
 
-  // Get relevant feedback for AI context
-  async getRelevantFeedback(documentText, currentCategory) {
-    // documentText parameter reserved for future content-based feedback analysis
+  // Helper methods for feedback analysis
+  generateSessionId() {
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  analyzeDocumentStructure(content) {
+    if (!content) return 'unknown';
+    
+    const hasLegalTerms = /\b(whereas|hereby|party|agreement|contract|terms|conditions)\b/i.test(content);
+    const hasInvoiceTerms = /\b(invoice|bill|amount|total|due|payment)\b/i.test(content);
+    const hasReportTerms = /\b(report|analysis|summary|findings|conclusion)\b/i.test(content);
+    
+    if (hasLegalTerms) return 'legal_document';
+    if (hasInvoiceTerms) return 'financial_document';
+    if (hasReportTerms) return 'report_document';
+    return 'general_document';
+  }
+
+  extractKeywords(content) {
+    if (!content) return [];
+    
+    // Simple keyword extraction - could be enhanced with NLP
+    const words = content.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 3)
+      .filter(word => !['this', 'that', 'with', 'from', 'they', 'have', 'been', 'will', 'were', 'said'].includes(word));
+    
+    // Get most frequent words
+    const wordCount = {};
+    words.forEach(word => {
+      wordCount[word] = (wordCount[word] || 0) + 1;
+    });
+    
+    return Object.entries(wordCount)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([word]) => word);
+  }
+
+  getRecentCorrections(feedback, daysAgo) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+    
+    const allCorrections = [
+      ...feedback.categoryCorrections,
+      ...feedback.nameCorrections,
+      ...(feedback.variableCorrections || [])
+    ];
+    
+    return allCorrections.filter(correction => 
+      new Date(correction.timestamp) > cutoffDate
+    );
+  }
+
+  getOlderCorrections(feedback, startDaysAgo, endDaysAgo) {
+    const startDate = new Date();
+    const endDate = new Date();
+    startDate.setDate(startDate.getDate() - endDaysAgo);
+    endDate.setDate(endDate.getDate() - startDaysAgo);
+    
+    const allCorrections = [
+      ...feedback.categoryCorrections,
+      ...feedback.nameCorrections,
+      ...(feedback.variableCorrections || [])
+    ];
+    
+    return allCorrections.filter(correction => {
+      const correctionDate = new Date(correction.timestamp);
+      return correctionDate >= startDate && correctionDate <= endDate;
+    });
+  }
+
+  // Enhanced feedback retrieval with variable context
+  async getRelevantFeedback(documentText, currentCategory, variableNames = []) {
     const feedback = await this.loadFeedback();
     const relevantFeedback = {
       categoryPatterns: [],
       namePatterns: [],
-      suggestions: []
+      variablePatterns: {},
+      suggestions: [],
+      echoPreventionData: {}
     };
     
     // Find patterns that might apply
@@ -471,9 +761,67 @@ class ConfigManager {
         because: n.feedback
       }));
     
+    // Get variable feedback patterns for requested variables
+    for (const variableName of variableNames) {
+      if (feedback.learning.contentPatterns[variableName]) {
+        const pattern = feedback.learning.contentPatterns[variableName];
+        
+        relevantFeedback.variablePatterns[variableName] = {
+          totalCorrections: pattern.totalCorrections,
+          commonMistakes: Object.entries(pattern.commonMistakes)
+            .filter(([, data]) => data.count >= 2)
+            .map(([mistake, data]) => ({
+              pattern: mistake,
+              count: data.count,
+              contexts: data.contexts.slice(-3), // Last 3 contexts
+              reasons: [...new Set(data.feedbackReasons)] // Unique reasons
+            })),
+          successfulPatterns: pattern.contextPatterns
+            .slice(-5) // Last 5 successful patterns
+            .map(p => ({
+              context: p.context,
+              correctValue: p.correctValue,
+              documentType: p.documentStructure
+            }))
+        };
+      }
+    }
+
+    // Analyze document structure for relevant patterns
+    const currentDocStructure = this.analyzeDocumentStructure(documentText);
+    const currentKeywords = this.extractKeywords(documentText);
+    
+    // Find similar documents that were corrected to prevent echo chambers
+    relevantFeedback.echoPreventionData = {
+      similarDocuments: Object.entries(feedback.documentContexts)
+        .filter(([, context]) => 
+          context.structure === currentDocStructure ||
+          context.keywords.some(keyword => currentKeywords.includes(keyword))
+        )
+        .slice(-3) // Last 3 similar documents
+        .map(([docId, context]) => ({
+          documentId: docId,
+          corrections: context.feedbackHistory.length,
+          lastCorrection: context.feedbackHistory[context.feedbackHistory.length - 1],
+          commonPatterns: context.variableExtractions
+        })),
+      recentSessions: this.getRecentCorrections(feedback, 7) // Last week's corrections
+        .map(c => c.sessionId)
+        .filter((id, index, arr) => arr.indexOf(id) === index) // Unique session IDs
+    };
+
     relevantFeedback.recentCorrections = {
       categories: recentCategoryCorrections,
-      names: recentNameCorrections
+      names: recentNameCorrections,
+      variables: (feedback.variableCorrections || [])
+        .slice(-5)
+        .map(v => ({
+          variable: v.variableName,
+          was: v.extractedValue,
+          correctedTo: v.correctedValue,
+          because: v.feedback,
+          confidence: v.aiConfidence
+        }))
     };
     
     return relevantFeedback;

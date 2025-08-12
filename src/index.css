@@ -1027,6 +1027,138 @@ input:checked + .toggle-slider:before {
   100% { transform: rotate(360deg); }
 }
 
+/* Processing Queue Styles */
+.processing-queue {
+  background: var(--background);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  margin-top: 20px;
+}
+
+.queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.queue-stats {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.queue-count {
+  background: var(--tertiary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.queue-cost {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.queue-list {
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+}
+
+.queue-item:hover {
+  border-color: var(--primary);
+  background: var(--tertiary);
+}
+
+.queue-item-status {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.queue-item-status.processing {
+  background: #ff9800;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+
+.queue-item-status.completed {
+  background: #4CAF50;
+  color: white;
+}
+
+.queue-item-status.failed {
+  background: #f44336;
+  color: white;
+}
+
+.queue-item-info {
+  flex: 1;
+}
+
+.queue-item-name {
+  font-weight: 500;
+  color: var(--dark);
+  margin-bottom: 2px;
+  font-size: 14px;
+}
+
+.queue-item-progress {
+  font-size: 12px;
+  color: #666;
+}
+
+.queue-item-cost {
+  font-weight: bold;
+  color: var(--primary);
+  font-size: 14px;
+}
+
+.queue-item-placeholder {
+  text-align: center;
+  padding: 30px;
+  color: #666;
+}
+
+.placeholder-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
 /* AI Suggest styles for pattern input */
 .input-with-ai {
   position: relative;
@@ -1077,7 +1209,7 @@ input:checked + .toggle-slider:before {
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 2px solid var(--primary);
   border-radius: 16px;
   padding: 16px 20px;
   cursor: pointer;
@@ -1089,17 +1221,19 @@ input:checked + .toggle-slider:before {
   box-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.02),
     0 20px 25px -5px rgba(0, 0, 0, 0.05),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px var(--primary);
 }
 
 .search-trigger-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: var(--primary-dark);
   transform: translateY(-2px);
   box-shadow: 
     0 4px 8px rgba(0, 0, 0, 0.06),
     0 25px 30px -5px rgba(0, 0, 0, 0.08),
-    0 15px 15px -5px rgba(0, 0, 0, 0.06);
+    0 15px 15px -5px rgba(0, 0, 0, 0.06),
+    0 0 0 1px var(--primary-dark);
 }
 
 .search-trigger-btn:active {
@@ -1635,4 +1769,54 @@ input:checked + .toggle-slider:before {
     width: 100%;
     justify-content: flex-start;
   }
+}
+
+/* Queue Error Styling */
+.queue-item-error {
+  border-left: 3px solid var(--error) !important;
+  background: linear-gradient(135deg, rgba(196, 80, 80, 0.05) 0%, rgba(196, 80, 80, 0.02) 100%) !important;
+  transition: all 0.3s ease;
+}
+
+.queue-item-error:hover {
+  background: linear-gradient(135deg, rgba(196, 80, 80, 0.08) 0%, rgba(196, 80, 80, 0.04) 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(196, 80, 80, 0.15);
+}
+
+.queue-item-status.failed {
+  background: var(--error) !important;
+  color: white !important;
+  animation: pulse-error 2s infinite;
+}
+
+@keyframes pulse-error {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Error Modal Enhancements */
+#queueErrorModal .modal-content {
+  border-left: 4px solid var(--error);
+}
+
+#queueErrorModal .modal-header h2 {
+  color: var(--error);
+}
+
+#errorMessage {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+}
+
+#errorStack {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+}
+
+#errorSuggestions li {
+  margin-bottom: 8px;
+  line-height: 1.4;
 }

@@ -128,3 +128,6 @@ eng.traineddata
 # Documentation (except PRODUCT_DOCUMENTATION.md)
 *.md
 !PRODUCT_DOCUMENTATION.md
+
+# Documentation folder
+docs/
